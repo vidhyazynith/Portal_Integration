@@ -5,37 +5,117 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import bcrypt from "bcryptjs";
 import SalaryTemplate from '../models/SalaryTemplate.js';
 import Salary from "../models/Salary.js";
+ 
+export const syncEmployeeStatusFromHR = async (req, res) => {
+  try {
+    const { employeeId, status } = req.body;
+ 
+    if (!employeeId || !status) {
+      return res.status(400).json({
+        message: "employeeId and status are required"
+      });
+    }
+ 
+    if (!["Active", "Inactive"].includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status value"
+      });
+    }
+ 
+    const employee = await Employee.findOneAndUpdate(
+      { employeeId },
+      { $set: { status } },
+      { new: true }
+    );
+ 
+    if (!employee) {
+      return res.status(404).json({
+        message: "Employee not found in finance"
+      });
+    }
+ 
+    return res.status(200).json({
+      message: "Employee status synced successfully",
+      employeeId: employee.employeeId,
+      status: employee.status
+    });
+ 
+  } catch (error) {
+    console.error("❌ Employee status sync error:", error);
+    return res.status(500).json({
+      message: "Failed to sync employee status"
+    });
+  }
+};
 
 export const syncEmployeeFromHR = async (req, res) => {
   try {
-    const { employeeId, designation, joiningDate, ...rest } = req.body;
+    const {
+      employeeId,
+      name,
+      email,
+      department,
+      designation,
+      joiningDate,
+      phone,
+      panNumber,
+      aadharNumber,
+      status
+    } = req.body;
 
-    if (!employeeId) {
-      return res.status(400).json({ message: "employeeId is required from HR" });
+    // 🔴 Mandatory validations (as per schema)
+    if (!employeeId || !name || !email || !department || !designation || !joiningDate) {
+      return res.status(400).json({
+        message: "employeeId, name, email, department, designation, joiningDate are required"
+      });
     }
+
+    const lowerEmail = email.toLowerCase();
 
     // 🔍 Check if employee already exists
     const existingEmployee = await Employee.findOne({ employeeId });
+
+    // 🔍 Email uniqueness check (only if new or email changed)
+    if (!existingEmployee || existingEmployee.email !== lowerEmail) {
+      const emailExistsInEmployee = await Employee.findOne({
+        email: lowerEmail,
+        employeeId: { $ne: employeeId }
+      });
+
+      if (emailExistsInEmployee) {
+        return res.status(400).json({ message: "Email already exists for another employee" });
+      }
+
+      const emailExistsInUser = await User.findOne({ email: lowerEmail });
+      if (emailExistsInUser) {
+        return res.status(400).json({ message: "Email already exists in user system" });
+      }
+    }
 
     const employee = await Employee.findOneAndUpdate(
       { employeeId },
       {
         $set: {
           employeeId,
+          name,
+          email: lowerEmail,
+          department,
           designation,
-          joiningDate: joiningDate ? new Date(joiningDate) : null,
-          ...rest,
+          joiningDate: new Date(joiningDate),
+          phone,
+          panNumber,
+          aadharNumber,
           source: "HR",
-          status: rest.status || "Active"
+          status: status || "Active"
         }
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // ✅ CREATE SALARY ONLY FOR NEW EMPLOYEE
-    // if (!existingEmployee) {
+    // ✅ Create salary ONLY for new employee
+    if (!existingEmployee) {
       await createEmployeeSalary(employee);
-    // }
+    }
 
     return res.status(200).json({
       message: "Employee synced successfully from HR",
@@ -50,60 +130,60 @@ export const syncEmployeeFromHR = async (req, res) => {
     });
   }
 };
- 
+
  
 // Register employee
-export const registerEmployee = async (req, res) => {
-  try {
-    const {
-      employeeId,
-      name,
-      department,
-      designation,
-      joiningDate,
-      phone,
-      panNumber,
-      aadharNumber,
-      photo
-    } = req.body;
+// export const registerEmployee = async (req, res) => {
+//   try {
+//     const {
+//       employeeId,
+//       name,
+//       department,
+//       designation,
+//       joiningDate,
+//       phone,
+//       panNumber,
+//       aadharNumber,
+//       photo
+//     } = req.body;
  
-    // 🔒 Minimal validation
-    if (!employeeId || !name || !department || !designation || !joiningDate) {
-      return res.status(400).json({
-        message: "Required HR fields missing"
-      });
-    }
+//     // 🔒 Minimal validation
+//     if (!employeeId || !name || !department || !designation || !joiningDate) {
+//       return res.status(400).json({
+//         message: "Required HR fields missing"
+//       });
+//     }
  
-    // 🔁 Upsert (create or update)
-    const employee = await Employee.findOneAndUpdate(
-      { employeeId },
-      {
-        $set: {
-          name,
-          department,
-          designation,
-          joiningDate: new Date(joiningDate),
-          phone,
-          panNumber: panNumber?.toUpperCase(),
-          aadharNumber,
-          photo
-        }
-      },
-      { upsert: true, new: true }
-    );
+//     // 🔁 Upsert (create or update)
+//     const employee = await Employee.findOneAndUpdate(
+//       { employeeId },
+//       {
+//         $set: {
+//           name,
+//           department,
+//           designation,
+//           joiningDate: new Date(joiningDate),
+//           phone,
+//           panNumber: panNumber?.toUpperCase(),
+//           aadharNumber,
+//           photo
+//         }
+//       },
+//       { upsert: true, new: true }
+//     );
  
-    return res.status(200).json({
-      message: "Employee synced successfully from HR",
-      employeeId: employee.employeeId
-    });
+//     return res.status(200).json({
+//       message: "Employee synced successfully from HR",
+//       employeeId: employee.employeeId
+//     });
  
-  } catch (error) {
-    console.error("❌ HR Sync Error:", error);
-    return res.status(500).json({
-      message: "Failed to sync employee from HR"
-    });
-  }
-};
+//   } catch (error) {
+//     console.error("❌ HR Sync Error:", error);
+//     return res.status(500).json({
+//       message: "Failed to sync employee from HR"
+//     });
+//   }
+// };
 
 //automatically create salary when employee is registered
 const createEmployeeSalary = async (employee) => {
@@ -153,152 +233,112 @@ export const getEmployeeById = async (req, res) => {
   }
 };
  
-// Update employee
-export const updateEmployee = async (req, res) => {
+  // Update employee
+ export const updateEmployee = async (req, res) => {
   try {
-    const { panNumber, status, phone, countryCode, address,email, ...otherFields } = req.body;
-    const employeeId = req.params.id; // This is the employeeId being updated
+    const { phone, panNumber, email, status, ...otherFields } = req.body;
+    const employeeId = req.params.id;
+
+    const currentEmployee = await Employee.findOne({ employeeId });
+    if (!currentEmployee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
 
     const updateData = {
       ...otherFields,
-      status: status || 'Active'
+      status: status || currentEmployee.status
     };
 
-    // Validate phone only if provided
+    // 📞 Phone validation
     if (typeof phone !== 'undefined') {
-      const phoneNumber = parsePhoneNumberFromString(`${countryCode}${phone}`);
+      const phoneNumber = parsePhoneNumberFromString(phone);
       if (!phoneNumber || !phoneNumber.isValid()) {
-        return res.status(400).json({ message: 'Invalid phone number format for the selected country' });
+        return res.status(400).json({ message: 'Invalid phone number format' });
       }
       updateData.phone = phoneNumber.number;
     }
- 
-    // ✅ Validate email if provided AND if it's different from current email
-    if (typeof email !== 'undefined') {
-      // Get current employee to check if email is actually being changed
-      const currentEmployee = await Employee.findOne({ employeeId });
-      
-      if (!currentEmployee) {
-        return res.status(404).json({ message: 'Employee not found' });
-      }
 
+    // 📧 Email validation
+    if (typeof email !== 'undefined') {
       const lowerEmail = email.toLowerCase();
 
-      // Only check for duplicates if email is actually being changed
       if (currentEmployee.email !== lowerEmail) {
-        // ✅ Check if email exists in User collection (including admin users)
-        const existingUser = await User.findOne({ email: lowerEmail });
-        if (existingUser) {
-          return res.status(400).json({ message: 'Email already exists in the system' });
-        }
-
-        // ✅ Check if email exists in another employee
-        const existingEmployeeWithEmail = await Employee.findOne({
+        const emailExistsInEmployee = await Employee.findOne({
           email: lowerEmail,
-          employeeId: { $ne: employeeId } // Exclude the current employee
+          employeeId: { $ne: employeeId }
         });
 
-        if (existingEmployeeWithEmail) {
+        if (emailExistsInEmployee) {
           return res.status(400).json({ message: 'Email already exists for another employee' });
+        }
+
+        const emailExistsInUser = await User.findOne({ email: lowerEmail });
+        if (emailExistsInUser) {
+          return res.status(400).json({ message: 'Email already exists in the system' });
         }
       }
 
       updateData.email = lowerEmail;
     }
 
+    // 🆔 PAN validation
     if (panNumber) {
-  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-  const upperPan = panNumber.toUpperCase();
-  
-  if (!panRegex.test(upperPan)) {
-    return res.status(400).json({ 
-      message: 'Please enter a valid PAN number (e.g., ABCDE1234F). Format: 5 letters + 4 digits + 1 letter' 
-    });
-  }
- 
-  // Get current employee to check if PAN is actually being changed
-      const currentEmployee = await Employee.findOne({ employeeId });
-      
-      if (!currentEmployee) {
-        return res.status(404).json({ message: 'Employee not found' });
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      const upperPan = panNumber.toUpperCase();
+
+      if (!panRegex.test(upperPan)) {
+        return res.status(400).json({
+          message: 'Invalid PAN format (ABCDE1234F)'
+        });
       }
 
-      // Only check for duplicates if PAN is actually being changed
       if (currentEmployee.panNumber !== upperPan) {
-      // Check for existing PAN in another employee
-     const existingEmployeeWithPan = await Employee.findOne({
-    panNumber: upperPan,
-    employeeId: { $ne: employeeId } // Exclude the current employee
-  });
- 
-       if (existingEmployeeWithPan) {
-    return res.status(400).json({ 
-      message: 'PAN number already exists for another employee' 
-    });
-  }
-}
+        const panExists = await Employee.findOne({
+          panNumber: upperPan,
+          employeeId: { $ne: employeeId }
+        });
 
-  updateData.panNumber = upperPan;
-}
- 
+        if (panExists) {
+          return res.status(400).json({
+            message: 'PAN number already exists for another employee'
+          });
+        }
+      }
+
+      updateData.panNumber = upperPan;
+    }
+
     const employee = await Employee.findOneAndUpdate(
-      { employeeId: employeeId },
-      {$set: updateData},
+      { employeeId },
+      { $set: updateData },
       { new: true, runValidators: true }
     );
- 
-    if (!employee) {
-      return res.status(404).json({ message: 'Employee not found' });
-    }
- 
+
     res.json({
       message: 'Employee updated successfully',
-      employee: {
-        id: employee._id,
-        employeeId: employee.employeeId,
-        name: employee.name,
-        email: employee.email,
-        designation: employee.designation,
-        department: employee.department,
-        phone: employee.phone,
-        address: employee.address,
-        panNumber: employee.panNumber,
-        joiningDate: employee.joiningDate,
-        status: employee.status
-      }
+      employee
     });
+
   } catch (error) {
     console.error('Error updating employee:', error);
- 
-    if (error.code === 11000) {
-      if (error.keyPattern && error.keyPattern.panNumber) {
-        return res.status(400).json({
-          message: 'PAN number already exists. Please use a different PAN number.'
-        });
-      }
-       if (error.keyPattern && error.keyPattern.email) {
-        return res.status(400).json({
-          message: 'Email already exists. Please use a different email.'
-        });
-      }
-    }
- 
     res.status(500).json({ message: 'Server error while updating employee' });
   }
 };
- 
+
  
 // Delete employee
 export const deleteEmployee = async (req, res) => {
   try {
-    const employee = await Employee.findOneAndDelete({ employeeId: req.params.id });
+    const employeeId = req.params.id;
+
+    const employee = await Employee.findOneAndDelete({ employeeId });
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
-   
-    // Also delete the associated user
-    await User.findOneAndDelete({ personId: req.params.id });
-   
+
+    // Delete linked user account (if exists)
+    await User.findOneAndDelete({ personId: employeeId });
+
     res.json({ message: 'Employee deleted successfully' });
   } catch (error) {
     console.error('Error deleting employee:', error);
@@ -310,112 +350,112 @@ export const deleteEmployee = async (req, res) => {
 export const getEmployeesByStatus = async (req, res) => {
   try {
     const { status } = req.params;
-   
+
     if (!['Active', 'Inactive'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status. Use "Active" or "Inactive".' });
+      return res.status(400).json({
+        message: 'Invalid status. Use "Active" or "Inactive".'
+      });
     }
-   
-    const employees = await Employee.find({ status }).sort({ createdAt: -1 });
-   
+
+    const employees = await Employee.find({ status })
+      .sort({ createdAt: -1 })
+      .select(
+        'employeeId name email department designation phone panNumber aadharNumber joiningDate status source createdAt'
+      );
+
     res.json({
-      employees: employees.map(emp => ({
-        id: emp._id,
-        employeeId: emp.employeeId,
-        name: emp.name,
-        email: emp.email,
-        designation: emp.designation,
-        department: emp.department,
-        phone: emp.phone,
-        address: emp.address,
-        panNumber: emp.panNumber,
-        joiningDate: emp.joiningDate,
-        status: emp.status
-      }))
+      success: true,
+      count: employees.length,
+      employees
     });
   } catch (error) {
     console.error('Error fetching employees by status:', error);
-    res.status(500).json({ message: 'Server error while fetching employees by status' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching employees by status'
+    });
   }
 };
+
  
 // Search employees
 export const searchEmployees = async (req, res) => {
   try {
     const { query } = req.query;
-   
+
     if (!query || query.trim() === '') {
-      return res.status(400).json({ message: 'Search query is required' });
+      return res.status(400).json({
+        message: 'Search query is required'
+      });
     }
-   
-    const searchRegex = new RegExp(query, 'i');
-   
+
+    const searchRegex = new RegExp(query.trim(), 'i');
+
     const employees = await Employee.find({
       $or: [
         { employeeId: searchRegex },
         { name: searchRegex },
         { email: searchRegex },
-        { designation: searchRegex },
         { department: searchRegex },
-        { panNumber: searchRegex } // Include PAN number in search
+        { designation: searchRegex },
+        { panNumber: searchRegex },
+        { aadharNumber: searchRegex }
       ]
-    }).sort({ createdAt: -1 });
-   
+    })
+      .sort({ createdAt: -1 })
+      .select(
+        'employeeId name email department designation phone panNumber aadharNumber joiningDate status source createdAt'
+      );
+
     res.json({
-      employees: employees.map(emp => ({
-        id: emp._id,
-        employeeId: emp.employeeId,
-        name: emp.name,
-        email: emp.email,
-        designation: emp.designation,
-        department: emp.department,
-        phone: emp.phone,
-        address: emp.address,
-        panNumber: emp.panNumber,
-        joiningDate: emp.joiningDate,
-        status: emp.status
-      }))
+      success: true,
+      count: employees.length,
+      employees
     });
   } catch (error) {
     console.error('Error searching employees:', error);
-    res.status(500).json({ message: 'Server error while searching employees' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error while searching employees'
+    });
   }
 };
 
 
 // Get countries from external API
 // Get states by country
-export const getCountries = async (req, res) => {
-  try {
-    console.log('🌍 Fetching countries list...');
+// export const getCountries = async (req, res) => {
+//   try {
+//     console.log('🌍 Fetching countries list...');
 
-    // Use REST Countries API
-    const response = await axios.get('https://restcountries.com/v3.1/all?fields=name,cca2,cca3');
-    console.log('✅ Countries API response received');
+//     // Use REST Countries API
+//     const response = await axios.get('https://restcountries.com/v3.1/all?fields=name,cca2,cca3');
+//     console.log('✅ Countries API response received');
    
-    const countries = response.data.map(country => ({
-      id: country.cca2,
-      code: country.cca2,
-      name: country.name.common
-    })).sort((a, b) => a.name.localeCompare(b.name));
+//     const countries = response.data.map(country => ({
+//       id: country.cca2,
+//       code: country.cca2,
+//       name: country.name.common
+//     })).sort((a, b) => a.name.localeCompare(b.name));
 
-    console.log(`✅ Found ${countries.length} countries`);
+//     console.log(`✅ Found ${countries.length} countries`);
    
-    return res.json({
-      success: true,
-      countries
-    });
+//     return res.json({
+//       success: true,
+//       countries
+//     });
 
-  } catch (error) {
-    console.error('❌ Error fetching countries:', error.message);
+//   } catch (error) {
+//     console.error('❌ Error fetching countries:', error.message);
    
-    // Return a proper error response
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to fetch countries list',
-      details: error.message
-    });
-  }
-};
+//     // Return a proper error response
+//     return res.status(500).json({
+//       success: false,
+//       error: 'Failed to fetch countries list',
+//       details: error.message
+//     });
+//   }
+// };
 
 //-------------------------
 // Get employee statistics

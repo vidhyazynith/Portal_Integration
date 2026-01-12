@@ -3,10 +3,7 @@ import mongoose from "mongoose";
 const employeeSchema = new mongoose.Schema(
 
   {
-
-    
-
-    employeeId: {
+      employeeId: {
 
       type: String,
 
@@ -27,6 +24,20 @@ const employeeSchema = new mongoose.Schema(
       type: String,
 
       required: true,
+
+      trim: true
+
+    },
+
+    email: {
+
+      type: String,
+
+      required: true,
+
+      unique: true,
+
+      lowercase: true,
 
       trim: true
 
