@@ -6,6 +6,7 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { sendPayslipEmail } from '../services/emailService.js';
 import PDFDocument from 'pdfkit';
 import numberToWords from 'number-to-words';
+//import { getPayslipsByEmployee } from '../Controllers/payslipController.js';
 import axios from "axios";
 import path from "path";
 import fs from 'fs';
@@ -15,13 +16,35 @@ const router = express.Router();
 // Get all employees for dropdown
 router.get('/employees', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
-    const employees = await Employee.find().select('employeeId name email designation department basicSalary');
+    const employees = await Employee.find({ status: 'Active' })
+    .select('employeeId name email designation department basicSalary');
     res.json({ employees });
   } catch (error) {
     console.error('Error fetching employees:', error);
     res.status(500).json({ message: 'Server error while fetching employees' });
   }
 });
+
+// router.get('/payslips/:employeeId', async (req, res) => {
+//   try {
+//     const payslips = await Payslip.find({
+//       employeeId: req.params.employeeId
+//     }).sort({ year: -1, createdAt: -1 });
+ 
+//     // ✅ ALWAYS return 200
+//     return res.status(200).json({
+//       success: true,
+//       data: payslips  || [] // [] if none
+//     });
+ 
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ success: false, message: 'Server error' });
+//   }
+// });
+
+// HR portal → list employee payslips
+//router.get('/employee/:employeeId', getPayslipsByEmployee);
 
 // Get employee details by ID
 router.get('/employee/:employeeId', authenticateToken, requireRole('admin'), async (req, res) => {
@@ -87,6 +110,12 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
     const employee = await Employee.findOne({ employeeId });
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    if (employee.status !== 'Active') {
+    return res.status(400).json({
+      message: 'Salary cannot be created for inactive employees'
+    });
     }
 
     // 🔄 AUTOMATIC LEAVES CARRY-FORWARD LOGIC

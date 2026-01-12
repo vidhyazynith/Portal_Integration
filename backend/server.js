@@ -20,6 +20,8 @@ import { startHikeCronJob  } from './services/cronService.js';
 import Salary from './models/Salary.js'; // Import Salary model for manual trigger
 import salaryTemplateRoutes from './routes/salaryTemplateRoutes.js';
 import DesignationRoutes from './routes/designationRoutes.js';
+ 
+
 
 dotenv.config();
 
@@ -53,6 +55,7 @@ app.use('/api/billing', Invoice);
 app.use('/api/company', companyRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/designations', DesignationRoutes);
+//app.use('/api/payslips', salaryRoutes);
 
 
 

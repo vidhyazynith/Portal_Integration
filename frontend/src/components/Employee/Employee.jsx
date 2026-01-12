@@ -30,6 +30,14 @@ const EmployeeManagement = () => {
     loadEmployees();
   }, []);
 
+
+  const tabFilteredEmployees = employees.filter(emp =>
+  activeTab === "active"
+    ? emp.status === "Active"
+    : emp.status === "Inactive"
+);
+
+
   /* ----------------------------------
      Status Change
   ---------------------------------- */
@@ -53,8 +61,8 @@ const EmployeeManagement = () => {
   /* ----------------------------------
      Search Filter
   ---------------------------------- */
-  const filteredEmployees = employees.filter((emp) =>
-    [emp.employeeId, emp.name, emp.department, emp.designation]
+  const filteredEmployees = tabFilteredEmployees.filter((emp) =>
+    [emp.employeeId, emp.name, emp.email,emp.department, emp.designation]
       .join(" ")
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
@@ -142,11 +150,12 @@ const EmployeeManagement = () => {
             <tr>
               <th>Employee ID</th>
               <th>Name</th>
+              <th>Email</th>
               <th>Department</th>
               <th>Designation</th>
               <th>Joining Date</th>
               <th>Status</th>
-              <th>Actions</th>
+              {/* <th>Actions</th> */}
             </tr>
           </thead>
 
@@ -168,6 +177,7 @@ const EmployeeManagement = () => {
                 <tr key={emp._id || emp.employeeId}>
                   <td>{emp.employeeId}</td>
                   <td>{emp.name}</td>
+                  <td>{emp.email || "-"}</td>
                   <td>{emp.department || "-"}</td>
                   <td>{emp.designation || "-"}</td>
                   <td>
@@ -186,7 +196,7 @@ const EmployeeManagement = () => {
                       {emp.status}
                     </span>
                   </td>
-                    <td>
+                    {/* <td>
                       <div className="action-buttons">
                         <button
                           className={`action-btn ${
@@ -197,7 +207,7 @@ const EmployeeManagement = () => {
                           {emp.status === "Active" ? "Deactivate" : "Activate"}
                         </button>
                       </div>
-                    </td>
+                    </td> */}
 
                 </tr>
               ))
