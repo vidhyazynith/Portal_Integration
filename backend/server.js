@@ -38,6 +38,7 @@ const app = express();
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   credentials: true
 }));
 app.use(express.json());
@@ -55,7 +56,6 @@ app.use('/api/billing', Invoice);
 app.use('/api/company', companyRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/designations', DesignationRoutes);
-//app.use('/api/payslips', salaryRoutes);
 
 
 

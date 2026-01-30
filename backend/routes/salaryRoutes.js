@@ -2,11 +2,11 @@ import express from 'express';
 import Salary from '../models/Salary.js';
 import Payslip from '../models/Payslip.js';
 import Employee from '../models/Employee.js';
+import Company from '../models/Company.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { sendPayslipEmail } from '../services/emailService.js';
 import PDFDocument from 'pdfkit';
 import numberToWords from 'number-to-words';
-//import { getPayslipsByEmployee } from '../Controllers/payslipController.js';
 import axios from "axios";
 import path from "path";
 import fs from 'fs';
@@ -25,26 +25,6 @@ router.get('/employees', authenticateToken, requireRole('admin'), async (req, re
   }
 });
 
-// router.get('/payslips/:employeeId', async (req, res) => {
-//   try {
-//     const payslips = await Payslip.find({
-//       employeeId: req.params.employeeId
-//     }).sort({ year: -1, createdAt: -1 });
- 
-//     // ✅ ALWAYS return 200
-//     return res.status(200).json({
-//       success: true,
-//       data: payslips  || [] // [] if none
-//     });
- 
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ success: false, message: 'Server error' });
-//   }
-// });
-
-// HR portal → list employee payslips
-//router.get('/employee/:employeeId', getPayslipsByEmployee);
 
 // Get employee details by ID
 router.get('/employee/:employeeId', authenticateToken, requireRole('admin'), async (req, res) => {
@@ -467,7 +447,7 @@ router.post('/:id/generate-payslip', authenticateToken, requireRole('admin'), as
 });
 
 // Get payslips for an employee
-router.get('/payslips/:employeeId', authenticateToken, async (req, res) => {
+router.get('/payslips/:employeeId', async (req, res) => {
   try {
     // Step 1: Find all enabled salary records for this employee
     const activeSalaries = await Salary.find({
@@ -495,7 +475,7 @@ router.get('/payslips/:employeeId', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/payslip/:id/download', authenticateToken, async (req, res) => {
+router.get('/payslip/:id/download', async (req, res) => {
     try {
     const payslip = await Payslip.findById(req.params.id).lean();
     if (!payslip) {
@@ -520,6 +500,54 @@ router.get('/payslip/:id/download', authenticateToken, async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
    
     doc.pipe(res);
+        let company = await Company.findOne();
+       if (!company) {
+          console.log('❌ Company information not found for download');
+          return res.status(404).json({ 
+            message: "Company information not found. Please set up company details first in Company Settings." 
+          });
+        }
+         if (!company.companyName || !company.address) {
+          console.log('❌ Company information incomplete for download');
+          return res.status(400).json({ 
+            message: "Company information is incomplete. Please complete company details in Company Settings." 
+          });
+        }
+    
+        let logoBuffer = null;
+        let signatureBuffer = null;
+     
+        try {
+          // Load logo from Cloudinary
+          if (company.logo?.url) {
+            const logoResponse = await axios({
+              method: 'GET',
+              url: company.logo.url,
+              responseType: 'arraybuffer',
+              timeout: 10000
+            });
+            logoBuffer = Buffer.from(logoResponse.data);
+            console.log("✅ Logo loaded from Cloudinary for download");
+          }
+        } catch (logoError) {
+          console.error("❌ Error loading logo from Cloudinary:", logoError.message);
+        }
+     
+        try {
+          // Load signature from Cloudinary
+          if (company.signature?.url) {
+            const signatureResponse = await axios({
+              method: 'GET',
+              url: company.signature.url,
+              responseType: 'arraybuffer',
+              timeout: 10000
+            });
+            signatureBuffer = Buffer.from(signatureResponse.data);
+            console.log("✅ Signature loaded from Cloudinary for download");
+          }
+        } catch (signatureError) {
+          console.error("❌ Error loading signature from Cloudinary:", signatureError.message);
+        }
     doc.fontSize(18).fillColor("#000").text("Zynith IT Solutions", 100, 45);
     doc.fontSize(10).fillColor("gray").text("Chennai, India", 100, 65);
     doc.fontSize(15).fillColor("gray").text("Payslip For the Month", 350, 47);
