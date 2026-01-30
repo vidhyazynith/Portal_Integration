@@ -1,5 +1,66 @@
 import Transaction from '../models/Transaction.js';
 import ExcelJS from 'exceljs';
+
+// 🔁 HR → Finance Reimbursement Sync (SYSTEM ENTRY)
+
+export const addHrReimbursementExpense = async (req, res) => {
+
+  try {
+    const {
+      claim_code,
+      claim_no,
+      employee_id,
+      employee_name,
+      department,
+      amount,
+      approved_date
+    } = req.body;
+ 
+    // Basic validation
+    if (!claim_code || !claim_no || !employee_id || !amount) {
+      return res.status(400).json({
+        message: "Missing required HR reimbursement fields"
+      });
+    }
+ 
+    // 🔒 Prevent duplicate sync
+
+    const existing = await Transaction.findOne({
+      remarks: `HR-CLAIM-${claim_code}-${claim_no}`,
+      createdBy: "system"
+    });
+ 
+    if (existing) {
+      return res.status(409).json({
+      message: "Reimbursement already synced to Finance"
+      });
+    }
+ 
+    // ✅ Create finance transaction
+    const transaction = new Transaction({
+      description: `CLAIM-${claim_code}-${claim_no}`,
+      amount: Number(amount),
+      type: "Expense",
+      category: "Reimbursement",
+      remarks: `${employee_id} | ${employee_name}`,
+      date: approved_date ? new Date(approved_date) : new Date(),
+      createdBy: "system"
+    });
+ 
+    await transaction.save();
+
+    return res.status(201).json({
+      message: "HR reimbursement synced successfully",
+      transaction_id: transaction._id
+    });
+  } catch (error) {
+    console.error("HR reimbursement sync failed:", error);
+    return res.status(500).json({
+      message: "Failed to sync HR reimbursement",
+      error: error.message
+    });
+  }
+};
  
 //download transaction as excel
 export const downloadExcel = async (req, res) => {

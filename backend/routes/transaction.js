@@ -10,7 +10,8 @@ import { addTransaction,
          filterTransaction,
          getSingleTransaction,
          getTransactionStats,
-         updateTransaction
+         updateTransaction,
+         addHrReimbursementExpense
 } from '../Controllers/transactionController.js';
  
 const router = express.Router();
@@ -53,6 +54,9 @@ router.get('/:id', authenticateToken, requireRole('admin'), getSingleTransaction
  
 // Create new transaction with file upload
 router.post('/', authenticateToken, requireRole('admin'), upload.single('attachment'), addTransaction );
+
+//HR reimbursement system sync (NO AUTH)
+router.post('/from-hr/reimbursement', addHrReimbursementExpense );
  
 // Download attachment
 router.get('/:id/attachment', authenticateToken, requireRole('admin'), downloadAttachment);
