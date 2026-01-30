@@ -1562,3 +1562,305 @@
     font-size: 13px;
   }
 }
+
+/* =========================================== */
+/* CUSTOMER DETAILS MODAL STYLES */
+/* =========================================== */
+
+/* Customer Details Modal Overlay */
+.customer-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+/* Customer Details Modal Content */
+.customer-modal-content {
+  background: white;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 5px 10px -5px rgba(0, 0, 0, 0.04);
+  animation: modalSlideIn 0.2s ease-out;
+}
+
+/* Compact Modal Header */
+.customer-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 10px 10px 0 0;
+}
+
+.customer-modal-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.customer-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.customer-modal-close:hover {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+/* Compact Modal Body */
+.customer-modal-body {
+  padding: 20px;
+}
+
+/* Customer Details Grid */
+.customer-details-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 20px;
+}
+
+.customer-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.customer-detail-row:last-child {
+  border-bottom: none;
+}
+
+.customer-detail-label {
+  font-weight: 600;
+  color: #4b5563;
+  min-width: 130px;
+  flex-shrink: 0;
+  font-size: 13px;
+  padding-right: 10px;
+}
+
+.customer-detail-value {
+  color: #111827;
+  text-align: right;
+  word-break: break-word;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Customer Type Badge in Modal */
+.customer-detail-value.customer-type-badge {
+  display: inline-block !important;
+  padding: 4px 10px !important;
+  border-radius: 12px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  width: auto !important;
+  min-width: 70px !important;
+  text-align: center !important;
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+}
+
+.customer-detail-value.customer-type-badge.individual {
+  background: #f0fff4 !important;
+  color: #22543d !important;
+  border: 1px solid #c6f6d5 !important;
+}
+
+.customer-detail-value.customer-type-badge.corporate {
+  background: #f0f4ff !important;
+  color: #1e40af !important;
+  border: 1px solid #c3dafe !important;
+}
+
+/* Customer Status Badge in Modal */
+.customer-detail-value.customer-status-badge {
+  display: inline-block !important;
+  padding: 4px 10px !important;
+  border-radius: 12px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  width: auto !important;
+  min-width: 70px !important;
+  text-align: center !important;
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+}
+
+.customer-detail-value.customer-status-badge.active {
+  background: #f0fff4 !important;
+  color: #22543d !important;
+  border: 1px solid #c6f6d5 !important;
+}
+
+.customer-detail-value.customer-status-badge.inactive {
+  background: #fed7d7 !important;
+  color: #742a2a !important;
+  border: 1px solid #feb2b2 !important;
+}
+
+/* Customer Detail Section Header */
+.customer-detail-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px solid #e5e7eb;
+  grid-column: 1 / -1;
+}
+
+.customer-detail-section h4 {
+  margin: 0 0 12px 0;
+  color: #374151;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Modal Actions */
+.customer-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 10px;
+}
+
+.customer-edit-btn {
+  padding: 8px 16px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  min-width: 120px;
+}
+
+.customer-edit-btn:hover {
+  background-color: #2563eb;
+}
+
+.customer-close-btn {
+  padding: 8px 16px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  min-width: 80px;
+}
+
+.customer-close-btn:hover {
+  background-color: #545b62;
+}
+
+/* Responsive adjustments for customer modal */
+@media (max-width: 768px) {
+  .customer-modal-content {
+    max-width: 95%;
+    max-height: 90vh;
+  }
+  
+  .customer-detail-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 10px 0;
+  }
+  
+  .customer-detail-label {
+    min-width: 100%;
+    font-size: 12px;
+    color: #6b7280;
+    padding-right: 0;
+  }
+  
+  .customer-detail-value {
+    text-align: left;
+    width: 100%;
+    font-size: 13px;
+    color: #111827;
+  }
+  
+  .customer-detail-value.customer-type-badge,
+  .customer-detail-value.customer-status-badge {
+    width: auto;
+    align-self: flex-start;
+    margin-left: 0 !important;
+  }
+  
+  .customer-modal-actions {
+    flex-direction: column;
+  }
+  
+  .customer-edit-btn,
+  .customer-close-btn {
+    width: 100%;
+    min-width: 100%;
+    padding: 10px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .customer-modal-header {
+    padding: 14px 16px;
+  }
+  
+  .customer-modal-header h2 {
+    font-size: 1.1rem;
+  }
+  
+  .customer-modal-body {
+    padding: 16px;
+  }
+  
+  .customer-edit-btn,
+  .customer-close-btn {
+    font-size: 12px;
+  }
+}
+
+/* Add hover effect to customer rows */
+.customer-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.customer-row:hover {
+  background-color: #f8fafc !important;
+}

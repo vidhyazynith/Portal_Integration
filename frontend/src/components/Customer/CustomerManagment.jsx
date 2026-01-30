@@ -16,6 +16,11 @@ const CustomerManagment = () => {
   const [paymentTermsError, setPaymentTermsError] = useState('');
   const [emailError, setEmailError] = useState(''); // NEW: Email validation error state
   const [checkingEmail, setCheckingEmail] = useState(false); // NEW: Loading state for email check
+
+  // NEW: State for customer details modal
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+
    // State for address dropdowns
   const [countries, setCountries] = useState([]);
   const [states, setStates] = useState([]);
@@ -54,6 +59,19 @@ const CustomerManagment = () => {
       setLoadingLocations(prev => ({ ...prev, countries: false }));
     }
   };
+
+
+  // Handle Customer Click for Modal
+const handleCustomerClick = (customer) => {
+  setSelectedCustomer(customer);
+  setShowCustomerModal(true);
+};
+
+// Close Customer Modal
+const closeCustomerModal = () => {
+  setShowCustomerModal(false);
+  setSelectedCustomer(null);
+};
 
    // Handle country change
   const handleCountryChange = async (countryCode, isEdit = false) => {
@@ -940,7 +958,12 @@ const handleSubmit = async (e) => {
                 </tr>
               ) : (
                 statusFilteredCustomers.map(customer => (
-                  <tr key={customer._id} className="customer-row">
+                  <tr
+                    key={customer._id} 
+                    className="customer-row"
+                    onClick={() => handleCustomerClick(customer)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <td>
                       <div className="customer-info">
                         <div className="customer-name">{customer.name}</div>
@@ -973,7 +996,7 @@ const handleSubmit = async (e) => {
                       </span>
                     </td>
                     <td>
-                      <div className="action-buttons">
+                      <div className="action-buttons" onClick={(e) => e.stopPropagation()}>
                         <button
                           className="action-btn edit-btn"
                           onClick={() => handleEdit(customer)}
@@ -1004,6 +1027,114 @@ const handleSubmit = async (e) => {
           </table>
         </div>
       </div>
+      {/* Customer Details Modal */}
+{showCustomerModal && selectedCustomer && (
+  <div className="customer-modal-overlay" onClick={closeCustomerModal}>
+    <div className="customer-modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="customer-modal-header">
+        <h2>Customer Details</h2>
+        <button className="customer-modal-close" onClick={closeCustomerModal}>
+          ×
+        </button>
+      </div>
+      
+      <div className="customer-modal-body">
+        <div className="customer-details-grid">
+          <div className="customer-detail-row">
+            <span className="customer-detail-label">Contact Person:</span>
+            <span className="customer-detail-value">{selectedCustomer.name}</span>
+          </div>
+          <div className="customer-detail-row">
+            <span className="customer-detail-label">Email:</span>
+            <span className="customer-detail-value">{selectedCustomer.email || "-"}</span>
+          </div>
+          <div className="customer-detail-row">
+            <span className="customer-detail-label">Phone:</span>
+            <span className="customer-detail-value">{selectedCustomer.phone || "-"}</span>
+          </div>
+          <div className="customer-detail-row">
+            <span className="customer-detail-label">Company:</span>
+            <span className="customer-detail-value">{selectedCustomer.company || "-"}</span>
+          </div>
+          <div className="customer-detail-row">
+            <span className="customer-detail-label">Customer Type:</span>
+            <span className={`customer-detail-value customer-type-badge ${selectedCustomer.customerType}`}>
+              {selectedCustomer.customerType}
+            </span>
+          </div>
+          <div className="customer-detail-row">
+            <span className="customer-detail-label">Payment Terms:</span>
+            <span className="customer-detail-value">
+              {getPaymentTermsDisplay(selectedCustomer.paymentTerms)}
+            </span>
+          </div>
+          <div className="customer-detail-row">
+            <span className="customer-detail-label">Status:</span>
+            <span className={`customer-detail-value customer-status-badge ${selectedCustomer.status || 'active'}`}>
+              {(selectedCustomer.status || 'active').toUpperCase()}
+            </span>
+          </div>
+          
+          {/* Address Information */}
+          {selectedCustomer.address && (
+            <>
+              <div className="customer-detail-section">
+                <h4>Address Information</h4>
+              </div>
+              <div className="customer-detail-row">
+                <span className="customer-detail-label">Address Line 1:</span>
+                <span className="customer-detail-value">
+                  {selectedCustomer.address.addressLine1 || "-"}
+                </span>
+              </div>
+              {selectedCustomer.address.addressLine2 && (
+                <div className="customer-detail-row">
+                  <span className="customer-detail-label">Address Line 2:</span>
+                  <span className="customer-detail-value">{selectedCustomer.address.addressLine2}</span>
+                </div>
+              )}
+              <div className="customer-detail-row">
+                <span className="customer-detail-label">Country:</span>
+                <span className="customer-detail-value">
+                  {selectedCustomer.address.country?.name || selectedCustomer.address.country || "-"}
+                </span>
+              </div>
+              <div className="customer-detail-row">
+                <span className="customer-detail-label">State:</span>
+                <span className="customer-detail-value">
+                  {selectedCustomer.address.state?.name || selectedCustomer.address.state || "-"}
+                </span>
+              </div>
+              <div className="customer-detail-row">
+                <span className="customer-detail-label">City:</span>
+                <span className="customer-detail-value">{selectedCustomer.address.city || "-"}</span>
+              </div>
+              <div className="customer-detail-row">
+                <span className="customer-detail-label">PIN Code:</span>
+                <span className="customer-detail-value">{selectedCustomer.address.pinCode || "-"}</span>
+              </div>
+            </>
+          )}
+        </div>
+        
+        <div className="customer-modal-actions">
+          <button 
+            className="customer-edit-btn"
+            onClick={() => {
+              closeCustomerModal();
+              handleEdit(selectedCustomer);
+            }}
+          >
+            Edit Customer
+          </button>
+          <button className="customer-close-btn" onClick={closeCustomerModal}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };
