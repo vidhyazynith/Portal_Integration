@@ -76,14 +76,22 @@ const salarySchema = new mongoose.Schema({
     type: Number, 
     default: 0 
   },
-  remainingLeaves: { 
-    type: Number, 
-    default: 0 
-  },
-  leaveTaken: { 
-    type: Number, 
-    default: 0 
-  },
+  casualLeaveTaken: {
+  type: Number,
+  default: 0
+},
+casualLeaveRemaining: {
+  type: Number,
+  default: 0
+},
+sickLeaveTaken: {
+  type: Number,
+  default: 0
+},
+sickLeaveRemaining: {
+  type: Number,
+  default: 0
+},
   lopDays: { 
     type: Number, 
     default: 0 
@@ -175,20 +183,26 @@ salarySchema.pre('validate', function(next) {
     
     // Ensure basic values are numbers with proper defaults
     this.basicSalary = parseFloat(this.basicSalary) || 0;
-    this.remainingLeaves = parseFloat(this.remainingLeaves) || 0;
-    this.leaveTaken = parseFloat(this.leaveTaken) || 0;
+    // this.remainingLeaves = parseFloat(this.remainingLeaves) || 0;
+    // this.leaveTaken = parseFloat(this.leaveTaken) || 0;
 
     console.log('📊 Basic values:', {
       basicSalary: this.basicSalary,
-      remainingLeaves: this.remainingLeaves,
-      leaveTaken: this.leaveTaken
+      casualLeaveTaken: this.casualLeaveTaken,
+      casualLeaveRemaining: this.casualLeaveRemaining,
+      sickLeaveTaken: this.sickLeaveTaken,
+      sickLeaveRemaining: this.sickLeaveRemaining
     });
 
+    // LOP & Paid days must come from HR
+this.lopDays = parseFloat(this.lopDays) || 0;
+this.paidDays = parseFloat(this.paidDays) || 30;
+
     // Calculate LOP Days based on remaining leaves and leave taken
-    this.lopDays = Math.max(0, this.leaveTaken - this.remainingLeaves);
+    // this.lopDays = Math.max(0, this.leaveTaken - this.remainingLeaves);
     
-    // Calculate paid days (30 - LOP days)
-    this.paidDays = Math.max(0, 30 - this.lopDays);
+    // // Calculate paid days (30 - LOP days)
+    // this.paidDays = Math.max(0, 30 - this.lopDays);
     
     // Calculate adjusted basic pay based on paid days
     const adjustedBasicPay = this.paidDays > 0 ? (this.basicSalary / 30) * this.paidDays : 0;
@@ -364,8 +378,12 @@ salarySchema.statics.applyHike = async function(salaryId, hikeData) {
       totalDeductions: currentSalary.totalDeductions,
       netPay: newNetPay,
       paidDays: currentSalary.paidDays,
-      remainingLeaves: currentSalary.remainingLeaves,
-      leaveTaken: currentSalary.leaveTaken,
+      // remainingLeaves: currentSalary.remainingLeaves,
+      // leaveTaken: currentSalary.leaveTaken,
+      casualLeaveTaken: currentSalary.casualLeaveTaken,
+      casualLeaveRemaining: currentSalary.casualLeaveRemaining,
+      sickLeaveTaken: currentSalary.sickLeaveTaken,
+      sickLeaveRemaining: currentSalary.sickLeaveRemaining,
       lopDays: currentSalary.lopDays,
       earnings: newEarnings,
       deductions: currentSalary.deductions,

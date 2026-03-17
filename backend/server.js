@@ -57,8 +57,6 @@ app.use('/api/company', companyRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/designations', DesignationRoutes);
 
-
-
 // Health check
 app.get('/api/health', (req, res) => {
   res.status(200).json({ message: 'Server is running!' });
