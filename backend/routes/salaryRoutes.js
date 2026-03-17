@@ -10,8 +10,9 @@ import numberToWords from 'number-to-words';
 import axios from "axios";
 import path from "path";
 import fs from 'fs';
+const HR_API = process.env.HR_API_URL || 'http://192.168.88.21:5000'; // HR service URL from env or default
 
-const router = express.Router();
+const router = express.Router(); 
 
 // Get all employees for dropdown
 router.get('/employees', authenticateToken, requireRole('admin'), async (req, res) => {
@@ -52,8 +53,10 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
       basicSalary,
       paidDays, 
       lopDays, 
-      remainingLeaves, 
-      leaveTaken, 
+      casualLeaveTaken,
+      casualLeaveRemaining,
+      sickLeaveTaken,
+      sickLeaveRemaining, 
       earnings = [], 
       deductions = [],
     } = req.body;
@@ -99,42 +102,42 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
     }
 
     // 🔄 AUTOMATIC LEAVES CARRY-FORWARD LOGIC
-    let calculatedRemainingLeaves = parseInt(remainingLeaves) || 0;
+    // let calculatedRemainingLeaves = parseInt(remainingLeaves) || 0;
     
-    // If remainingLeaves is not provided or is 0, calculate from previous month
-    if (!remainingLeaves || remainingLeaves === 0) {
-      try {
-        // Get all previous salaries for this employee, sorted by year and month
-        const previousSalaries = await Salary.find({ 
-          employeeId,
-          activeStatus: 'enabled'
-        }).sort({ year: -1, month: -1 });
+    // // If remainingLeaves is not provided or is 0, calculate from previous month
+    // if (!remainingLeaves || remainingLeaves === 0) {
+    //   try {
+    //     // Get all previous salaries for this employee, sorted by year and month
+    //     const previousSalaries = await Salary.find({ 
+    //       employeeId,
+    //       activeStatus: 'enabled'
+    //     }).sort({ year: -1, month: -1 });
         
-        if (previousSalaries.length > 0) {
-          // Get the most recent previous salary
-          const latestSalary = previousSalaries[0];
+    //     if (previousSalaries.length > 0) {
+    //       // Get the most recent previous salary
+    //       const latestSalary = previousSalaries[0];
           
-          // Calculate new remaining leaves: previous remaining - previous leave taken
-          const previousRemaining = latestSalary.remainingLeaves || 0;
-          const previousLeaveTaken = latestSalary.leaveTaken || 0;
-          calculatedRemainingLeaves = Math.max(0, previousRemaining - previousLeaveTaken);
+    //       // Calculate new remaining leaves: previous remaining - previous leave taken
+    //       const previousRemaining = latestSalary.remainingLeaves || 0;
+    //       const previousLeaveTaken = latestSalary.leaveTaken || 0;
+    //       calculatedRemainingLeaves = Math.max(0, previousRemaining - previousLeaveTaken);
           
-          console.log('🔄 Automatic leaves calculation:', {
-            previousRemaining,
-            previousLeaveTaken,
-            calculatedRemainingLeaves
-          });
-        } else {
-          // First salary record for this employee - use default or provided value
-          calculatedRemainingLeaves = parseInt(remainingLeaves) || 0;
-          console.log('📝 First salary record, using default remaining leaves:', calculatedRemainingLeaves);
-        }
-      } catch (error) {
-        console.error('❌ Error calculating previous leaves:', error);
-        // Fallback to provided value
-        calculatedRemainingLeaves = parseInt(remainingLeaves) || 0;
-      }
-    }
+    //       console.log('🔄 Automatic leaves calculation:', {
+    //         previousRemaining,
+    //         previousLeaveTaken,
+    //         calculatedRemainingLeaves
+    //       });
+    //     } else {
+    //       // First salary record for this employee - use default or provided value
+    //       calculatedRemainingLeaves = parseInt(remainingLeaves) || 0;
+    //       console.log('📝 First salary record, using default remaining leaves:', calculatedRemainingLeaves);
+    //     }
+    //   } catch (error) {
+    //     console.error('❌ Error calculating previous leaves:', error);
+    //     // Fallback to provided value
+    //     calculatedRemainingLeaves = parseInt(remainingLeaves) || 0;
+    //   }
+    // }
 
     // Prepare salary data with proper validation
     const salaryData = {
@@ -146,10 +149,12 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
       month: month,
       year: parseInt(year),
       basicSalary: parseFloat(basicSalary),
-      paidDays: parseInt(paidDays) || 30,
-      lopDays: parseInt(lopDays) || 0,
-      remainingLeaves: calculatedRemainingLeaves, // Use calculated value
-      leaveTaken: parseInt(leaveTaken) || 0,
+      paidDays: parseFloat(paidDays) || 30,
+      lopDays: parseFloat(lopDays) || 0,
+      casualLeaveTaken: parseFloat(casualLeaveTaken) || 0,
+      casualLeaveRemaining: parseFloat(casualLeaveRemaining) || 0,
+      sickLeaveTaken: parseFloat(sickLeaveTaken) || 0,
+      sickLeaveRemaining: parseFloat(sickLeaveRemaining) || 0,
       earnings: Array.isArray(earnings) ? earnings.map(earning => ({
         type: earning.type || 'Additional Earning',
         amount: parseFloat(earning.amount) || 0,
@@ -367,84 +372,242 @@ router.post('/:id/apply-hike', authenticateToken, requireRole('admin'), async (r
   }
 });
 
-// Generate payslip and send email
+
 router.post('/:id/generate-payslip', authenticateToken, requireRole('admin'), async (req, res) => {
+
   try {
+ 
+    // 🔹 1️⃣ Find salary record first
+
     const salary = await Salary.findById(req.params.id);
+ 
     if (!salary) {
+
       return res.status(404).json({ message: 'Salary record not found' });
-    }
 
-    // 🔒 Check if salary is active
+    }
+ 
+    // 🔹 2️⃣ Check salary is active
+
     if (salary.activeStatus !== 'enabled') {
+
       return res.status(400).json({
+
         message: 'Payslip cannot be generated for disabled salary records.'
+
       });
+
     }
+ 
+    // 🔹 3️⃣ Check if payslip already exists
 
-    // Check if payslip already exists
-      const existingPayslip = await Payslip.findOne({ 
-      employeeId: salary.employeeId, 
-      month: salary.month,
-      year: salary.year
-    });
+    const existingPayslip = await Payslip.findOne({
 
-       if (existingPayslip) {
-      return res.status(400).json({ 
-        message: `Payslip already generated for ${salary.month} ${salary.year}` 
-      });
-    }
-    // 🔄 CALCULATE UPDATED REMAINING LEAVES FOR PAYSLIP
-    const updatedRemainingLeaves = Math.max(0, (salary.remainingLeaves || 0) - (salary.leaveTaken || 0));
-
-    // Create payslip record
-    const payslipData = {
-      salaryId: salary._id,
       employeeId: salary.employeeId,
-      name: salary.name,
-      email: salary.email,
-      designation: salary.designation,
-      panNo : salary.panNo,
+
       month: salary.month,
-      year: salary.year,
-      payDate: new Date().toISOString().split('T')[0],
-      basicSalary: salary.basicSalary,
-      grossEarnings: salary.grossEarnings,
-      totalDeductions: salary.totalDeductions,
-      netPay: salary.netPay,
-      paidDays: salary.paidDays,
-      lopDays: salary.lopDays,
-      remainingLeaves: updatedRemainingLeaves,
-      leaveTaken: salary.leaveTaken,
-      earnings: salary.earnings,
-      deductions: salary.deductions
-    };
 
-    const payslip = new Payslip(payslipData);
-    await payslip.save();
+      year: salary.year
 
-    // Update salary status to paid
-    salary.status = 'paid';
-    await salary.save();
-
-    // Send email with payslip
-    const emailResult = await sendPayslipEmail(payslip);
-
-    res.json({
-      message: 'Payslip generated and sent successfully',
-      payslip,
-      emailSent: emailResult.success,
-       leavesCalculation: {
-        startingRemaining: salary.remainingLeaves,
-        leavesTaken: salary.leaveTaken,
-        updatedRemaining: updatedRemainingLeaves
-      }
     });
+ 
+    if (existingPayslip) {
+
+      return res.status(400).json({
+
+        message: `Payslip already generated for ${salary.month} ${salary.year}`
+
+      });
+
+    }
+ 
+    // 🔥 4️⃣ CALL HR FOR PAYROLL DATA
+
+    let hrData;
+
+    try {
+
+      const monthMap = {
+        January: 1,
+        February: 2,
+        March: 3,
+        April: 4,
+        May: 5,
+        June: 6,
+        July: 7,
+        August: 8,
+        September: 9,
+        October: 10,
+        November: 11,
+        December: 12
+      };
+ 
+      const numericMonth = monthMap[salary.month] || salary.month;
+
+      const hrResponse = await axios.get(
+
+        `${HR_API}/api/payroll/payroll-data/${salary.employeeId}`,
+
+        {
+
+          params: {
+
+            year: salary.year,
+
+            month: numericMonth
+
+          },
+
+          timeout: 10000
+
+        }
+
+      );
+ 
+      hrData = hrResponse.data;
+ 
+      console.log("✅ Payroll data fetched from HR:", hrData);
+ 
+    } catch (err) {
+
+      console.error("❌ HR ERROR:", err.response?.data || err.message);
+
+      return res.status(500).json({
+
+        message: "Failed to fetch payroll data from HR portal",
+
+        error: err.response?.data || err.message
+
+      });
+
+    }
+ 
+    // 🔹 5️⃣ Update salary safely (cast numbers properly)
+
+    salary.casualLeaveTaken = Number(hrData.casualLeaveTaken) || 0;
+
+    salary.casualLeaveRemaining = Number(hrData.casualLeaveRemaining) || 0;
+
+    salary.sickLeaveTaken = Number(hrData.sickLeaveTaken) || 0;
+
+    salary.sickLeaveRemaining = Number(hrData.sickLeaveRemaining) || 0;
+
+    salary.lopDays = Number(hrData.lopDays) || 0;
+
+    salary.paidDays = Number(hrData.paidDays) || 0;
+ 
+    await salary.save();
+ 
+    // 🔹 6️⃣ Create payslip
+
+    const payslipData = {
+
+      salaryId: salary._id,
+
+      employeeId: salary.employeeId,
+
+      name: salary.name,
+
+      email: salary.email,
+
+      designation: salary.designation,
+
+      panNo: salary.panNo,
+
+      month: salary.month,
+
+      year: salary.year,
+
+      payDate: new Date().toISOString().split('T')[0],
+
+      basicSalary: salary.basicSalary,
+
+      grossEarnings: salary.grossEarnings,
+
+      totalDeductions: salary.totalDeductions,
+
+      netPay: salary.netPay,
+
+      paidDays: salary.paidDays,
+
+      lopDays: salary.lopDays,
+
+      casualLeaveTaken: salary.casualLeaveTaken,
+
+      casualLeaveRemaining: salary.casualLeaveRemaining,
+
+      sickLeaveTaken: salary.sickLeaveTaken,
+
+      sickLeaveRemaining: salary.sickLeaveRemaining,
+
+      earnings: salary.earnings,
+
+      deductions: salary.deductions
+
+    };
+ 
+    const payslip = new Payslip(payslipData);
+
+    await payslip.save();
+ 
+    // 🔹 7️⃣ Mark salary as paid
+
+    salary.status = 'paid';
+
+    await salary.save();
+ 
+    // 🔹 8️⃣ Send email
+
+    const emailResult = await sendPayslipEmail(payslip);
+ 
+    return res.json({
+
+      message: 'Payslip generated successfully',
+
+      emailSent: emailResult.success,
+
+      leavesCalculation: {
+
+        casual: {
+
+          taken: salary.casualLeaveTaken,
+
+          remaining: salary.casualLeaveRemaining
+
+        },
+
+        sick: {
+
+          taken: salary.sickLeaveTaken,
+
+          remaining: salary.sickLeaveRemaining
+
+        },
+
+        lopDays: salary.lopDays,
+
+        paidDays: salary.paidDays
+
+      }
+
+    });
+ 
   } catch (error) {
-    console.error('Error generating payslip:', error);
-    res.status(500).json({ message: 'Server error while generating payslip' });
+
+    console.error('❌ Error generating payslip:', error);
+
+    return res.status(500).json({
+
+      message: 'Server error while generating payslip',
+
+      error: error.message
+
+    });
+
   }
+
 });
+ 
 
 // Get payslips for an employee
 router.get('/payslips/:employeeId', async (req, res) => {
@@ -622,13 +785,13 @@ router.get('/payslip/:id/download', async (req, res) => {
  
     doc.moveDown(2);
  
-    doc.fontSize(11).fillColor("gray").text("Remaining Leave", 150, 293);
-    doc.text(":", 238, 293);
-    doc.fontSize(11).fillColor("black").text(payslip.remainingLeaves, 250, 293);
+    doc.fontSize(11).fillColor("gray").text("Causal Leave Taken", 150, 293);
+    doc.text(":", 251, 293);
+    doc.fontSize(11).fillColor("black").text(payslip.casualLeaveTaken, 263, 293);
  
-    doc.fontSize(11).fillColor("gray").text("Leaves Taken", 350, 293);
+    doc.fontSize(11).fillColor("gray").text("Sick Leave Taken", 350, 293);
     doc.text(":", 438, 293);
-    doc.fontSize(11).fillColor("black").text(payslip.leaveTaken, 450, 293);
+    doc.fontSize(11).fillColor("black").text(payslip.sickLeaveTaken, 450, 293);
  
 //-----------------------------------------------------------------------
 // DYNAMIC TABLE SECTION - UPDATED
