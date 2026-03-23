@@ -183,8 +183,6 @@ salarySchema.pre('validate', function(next) {
     
     // Ensure basic values are numbers with proper defaults
     this.basicSalary = parseFloat(this.basicSalary) || 0;
-    // this.remainingLeaves = parseFloat(this.remainingLeaves) || 0;
-    // this.leaveTaken = parseFloat(this.leaveTaken) || 0;
 
     console.log('📊 Basic values:', {
       basicSalary: this.basicSalary,
@@ -195,14 +193,8 @@ salarySchema.pre('validate', function(next) {
     });
 
     // LOP & Paid days must come from HR
-this.lopDays = parseFloat(this.lopDays) || 0;
-this.paidDays = parseFloat(this.paidDays) || 30;
-
-    // Calculate LOP Days based on remaining leaves and leave taken
-    // this.lopDays = Math.max(0, this.leaveTaken - this.remainingLeaves);
-    
-    // // Calculate paid days (30 - LOP days)
-    // this.paidDays = Math.max(0, 30 - this.lopDays);
+    this.lopDays = parseFloat(this.lopDays) || 0;
+    this.paidDays = parseFloat(this.paidDays) || 30;
     
     // Calculate adjusted basic pay based on paid days
     const adjustedBasicPay = this.paidDays > 0 ? (this.basicSalary / 30) * this.paidDays : 0;
@@ -378,8 +370,6 @@ salarySchema.statics.applyHike = async function(salaryId, hikeData) {
       totalDeductions: currentSalary.totalDeductions,
       netPay: newNetPay,
       paidDays: currentSalary.paidDays,
-      // remainingLeaves: currentSalary.remainingLeaves,
-      // leaveTaken: currentSalary.leaveTaken,
       casualLeaveTaken: currentSalary.casualLeaveTaken,
       casualLeaveRemaining: currentSalary.casualLeaveRemaining,
       sickLeaveTaken: currentSalary.sickLeaveTaken,

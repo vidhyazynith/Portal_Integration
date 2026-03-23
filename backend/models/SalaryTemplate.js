@@ -59,10 +59,6 @@ const salaryTemplateSchema = new mongoose.Schema({
       }
     }
   ],
-  // remainingLeaves: {
-  //   type: Number,
-  //   default: 0
-  // },
   casualLeaveTaken: {
   type: Number,
   default: 0
@@ -145,10 +141,8 @@ salaryTemplateSchema.statics.createSalaryFromTemplate = async function(employee,
     netPay: netPay,
     paidDays: 30, // Default full month
     lopDays: 0,
-    // remainingLeaves: 0,
-    // leaveTaken: 0,
     casualLeaveTaken: 0,
-    casualLeaveReamining:0,
+    casualLeaveReamining: 0,
     sickLeaveTaken: 0,
     sickLeaveRemaining: 0,
     earnings: template.earnings,

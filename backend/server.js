@@ -13,26 +13,16 @@ import transactionRoutes from './routes/transaction.js';
 import Invoice from './routes/invoice.js';
 import companyRoutes from './routes/companyRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js'
-//import Phot from "./routes/upload.js";
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { startHikeCronJob  } from './services/cronService.js';
 import Salary from './models/Salary.js'; // Import Salary model for manual trigger
 import salaryTemplateRoutes from './routes/salaryTemplateRoutes.js';
 import DesignationRoutes from './routes/designationRoutes.js';
- 
-
 
 dotenv.config();
 
 const app = express();
-
-
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
-
-// Serve static files from uploads directory
-//app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Middleware
 app.use(helmet());

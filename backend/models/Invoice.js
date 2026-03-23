@@ -10,9 +10,9 @@ const invoiceSchema = new mongoose.Schema({
   items: [{
     description: { type: String, required: true },
     remarks: { type: String, default: "" },
-    unitPrice: { type: Number, required: true }, // NEW FIELD
-    quantity: { type: Number, required: true }, // NEW FIELD
-    amount: { type: Number, required: true } // Now auto-calculated
+    unitPrice: { type: Number, required: true },
+    quantity: { type: Number, required: true },
+    amount: { type: Number, required: true } 
   }],
   subtotal: { type: Number, required: true },
   taxPercent: { type: Number, default: 0 },

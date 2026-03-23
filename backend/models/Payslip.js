@@ -65,14 +65,6 @@ const payslipSchema = new mongoose.Schema({
     type: Number, 
     default: 0 
   },
-  // remainingLeaves: { 
-  //   type: Number, 
-  //   default: 0 
-  // },
-  // leaveTaken: { 
-  //   type: Number, 
-  //   default: 0 
-  // },
   casualLeaveTaken: { type: Number, default: 0 },
   casualLeaveRemaining: { type: Number, default: 0 },
   sickLeaveTaken: { type: Number, default: 0 },

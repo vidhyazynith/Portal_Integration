@@ -131,60 +131,6 @@ export const syncEmployeeFromHR = async (req, res) => {
   }
 };
 
- 
-// Register employee
-// export const registerEmployee = async (req, res) => {
-//   try {
-//     const {
-//       employeeId,
-//       name,
-//       department,
-//       designation,
-//       joiningDate,
-//       phone,
-//       panNumber,
-//       aadharNumber,
-//       photo
-//     } = req.body;
- 
-//     // 🔒 Minimal validation
-//     if (!employeeId || !name || !department || !designation || !joiningDate) {
-//       return res.status(400).json({
-//         message: "Required HR fields missing"
-//       });
-//     }
- 
-//     // 🔁 Upsert (create or update)
-//     const employee = await Employee.findOneAndUpdate(
-//       { employeeId },
-//       {
-//         $set: {
-//           name,
-//           department,
-//           designation,
-//           joiningDate: new Date(joiningDate),
-//           phone,
-//           panNumber: panNumber?.toUpperCase(),
-//           aadharNumber,
-//           photo
-//         }
-//       },
-//       { upsert: true, new: true }
-//     );
- 
-//     return res.status(200).json({
-//       message: "Employee synced successfully from HR",
-//       employeeId: employee.employeeId
-//     });
- 
-//   } catch (error) {
-//     console.error("❌ HR Sync Error:", error);
-//     return res.status(500).json({
-//       message: "Failed to sync employee from HR"
-//     });
-//   }
-// };
-
 //automatically create salary when employee is registered
 const createEmployeeSalary = async (employee) => {
   try {
@@ -421,43 +367,6 @@ export const searchEmployees = async (req, res) => {
   }
 };
 
-
-// Get countries from external API
-// Get states by country
-// export const getCountries = async (req, res) => {
-//   try {
-//     console.log('🌍 Fetching countries list...');
-
-//     // Use REST Countries API
-//     const response = await axios.get('https://restcountries.com/v3.1/all?fields=name,cca2,cca3');
-//     console.log('✅ Countries API response received');
-   
-//     const countries = response.data.map(country => ({
-//       id: country.cca2,
-//       code: country.cca2,
-//       name: country.name.common
-//     })).sort((a, b) => a.name.localeCompare(b.name));
-
-//     console.log(`✅ Found ${countries.length} countries`);
-   
-//     return res.json({
-//       success: true,
-//       countries
-//     });
-
-//   } catch (error) {
-//     console.error('❌ Error fetching countries:', error.message);
-   
-//     // Return a proper error response
-//     return res.status(500).json({
-//       success: false,
-//       error: 'Failed to fetch countries list',
-//       details: error.message
-//     });
-//   }
-// };
-
-//-------------------------
 // Get employee statistics
 export const getEmployeeStats = async (req, res) => {
   try {

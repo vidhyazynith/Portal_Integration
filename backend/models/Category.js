@@ -11,7 +11,7 @@ const categorySchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category type is required'],
     enum: {
-      values: ['employee-role', 'employee-designation', 'transaction-income', 'transaction-expense'],
+      values: [ 'transaction-income', 'transaction-expense'],
       message: 'Invalid category type'
     }
   },
@@ -66,8 +66,7 @@ categorySchema.statics.getCategoryStats = async function() {
   ]);
  
   return {
-    'employee-role': stats.find(stat => stat._id === 'employee-role')?.count || 0,
-    'employee-designation': stats.find(stat => stat._id === 'employee-designation')?.count || 0,
+    
     'transaction-income': stats.find(stat => stat._id === 'transaction-income')?.count || 0,
     'transaction-expense': stats.find(stat => stat._id === 'transaction-expense')?.count || 0,
   };
