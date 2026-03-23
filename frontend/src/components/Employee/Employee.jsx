@@ -112,7 +112,7 @@ const EmployeeManagement = () => {
       )}
 
       {/* Stats Cards */}
-<div className="stats-cards-container">
+      <div className="stats-cards-container">
       <div className="stat-card total-employees">
         <div className="stat-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

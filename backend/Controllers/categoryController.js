@@ -7,9 +7,8 @@ import Category from '../models/Category.js';
 export const getAllCategories = async (req, res) => {
   try {
     // Get categories for each type in parallel
-    const [employeeRoles, designations, transactionIncome, transactionExpense, stats] = await Promise.all([
-      Category.getCategoriesByType('employee-role'),
-      Category.getCategoriesByType('employee-designation'),
+    const [transactionIncome, transactionExpense, stats] = await Promise.all([
+     
       Category.getCategoriesByType('transaction-income'),
       Category.getCategoriesByType('transaction-expense'),
       Category.getCategoryStats()
@@ -18,8 +17,7 @@ export const getAllCategories = async (req, res) => {
     res.json({
       success: true,
       data: {
-        'employee-role': employeeRoles,
-        'employee-designation': designations,
+        
         'transaction-income': transactionIncome,
         'transaction-expense': transactionExpense
       },
@@ -43,7 +41,7 @@ export const getCategoriesByType = async (req, res) => {
     const { type } = req.params;
     
     // Validate category type
-    const validTypes = ['employee-role', 'employee-designation', 'transaction-income', 'transaction-expense'];
+    const validTypes = ['transaction-income', 'transaction-expense'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({
         success: false,
@@ -107,7 +105,7 @@ export const createCategory = async (req, res) => {
     }
 
     // Validate category type
-    const validTypes = ['employee-role', 'employee-designation', 'transaction-income', 'transaction-expense'];
+    const validTypes = [ 'transaction-income', 'transaction-expense'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({
         success: false,
@@ -264,7 +262,7 @@ export const getCategorySuggestions = async (req, res) => {
     const { type } = req.params;
     
     // Validate category type
-    const validTypes = ['employee-role', 'employee-designation', 'transaction-income', 'transaction-expense'];
+    const validTypes = [ 'transaction-income', 'transaction-expense'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({
         success: false,
@@ -291,8 +289,7 @@ export const getCategorySuggestions = async (req, res) => {
     // If no suggestions in database, return some default ones
     if (suggestionNames.length === 0) {
       const defaultSuggestions = {
-        'employee-role': ['Software Developer', 'Project Manager', 'UI/UX Designer', 'QA Engineer', 'DevOps Engineer'],
-        'employee-designation': ['Junior', 'Senior', 'Team Lead', 'Manager', 'Director'],
+      
         'transaction-category': ['Salary', 'Office Rent', 'Software Licenses', 'Marketing', 'Travel']
       };
       suggestionNames.push(...defaultSuggestions[type] || []);

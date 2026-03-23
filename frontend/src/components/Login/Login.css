@@ -377,7 +377,7 @@
     0 5px 15px rgba(58, 148, 64, 0.3);
   position: relative;
   overflow: hidden;
-  margin-left: 15px !important;
+  margin-left: 0px !important;
 }
 
 .signin-btn::before {

@@ -5,13 +5,11 @@ import './CategorySettings.css';
  
 const CategorySettings = () => {
   const [categories, setCategories] = useState({
-    'employee-role': [],
-    'employee-designation': [],
+    
     'transaction-category': []
   });
   const [stats, setStats] = useState({
-    'employee-role': 0,
-    'employee-designation': 0,
+    
     'transaction-category': 0
   });
   const [activeModal, setActiveModal] = useState(null);

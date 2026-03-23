@@ -76,24 +76,7 @@ export const defaultCategory = {
 
 // Category types configuration
 export const categoryTypes = [
-  {
-    id: 'employee-role',
-    title: 'Employee Departments',
-    description: 'Manage job departments in your organization',
-    icon: '👥',
-    color: '#3498db',
-    placeholder: 'e.g., Software Developer',
-    suggestions: ['Software Developer', 'Project Manager', 'UI/UX Designer', 'QA Engineer', 'DevOps Engineer']
-  },
-  {
-    id: 'employee-designation',
-    title: 'Designations',
-    description: 'Manage hierarchy levels and position titles',
-    icon: '📊',
-    color: '#9b59b6',
-    placeholder: 'e.g., Senior Manager',
-    suggestions: ['Junior', 'Senior', 'Team Lead', 'Manager', 'Director']
-  },
+ 
   {
     id: 'transaction-income',
     title: 'Income Categories',

@@ -1707,174 +1707,173 @@ const handleEditSalary = async (salary) => {
         </div>
       )}
  
-{/* Payslips Modal */}
-{showPayslipsModal && (
-  <div className="modal-overlay" onClick={() => setShowPayslipsModal(false)}>
-    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-      <div className="modal-header">
-        <h3>Employee Payslips</h3>
-        <button className="close-btn" onClick={() => setShowPayslipsModal(false)}>×</button>
-      </div>
-      <div className="modal-body">
-        {/* Filter Controls */}
-        <div className="filter-section">
-          <h4 className="section-title">Filter Payslips</h4>
-          <div className="filter-controls">
-            <div className="filter-group">
-              <label className="filter-label">Month</label>
-              <select
-                className="filter-select"
-                value={selectedFilterMonth}
-                onChange={(e) => setSelectedFilterMonth(e.target.value)}
-              >
-                <option value="">Select Month</option>
-                {months.map(month => (
-                  <option key={month} value={month}>{month}</option>
-                ))}
-              </select>
+      {/* Payslips Modal */}
+      {showPayslipsModal && (
+        <div className="modal-overlay" onClick={() => setShowPayslipsModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Employee Payslips</h3>
+              <button className="close-btn" onClick={() => setShowPayslipsModal(false)}>×</button>
             </div>
-            <div className="filter-group">
-              <label className="filter-label">Year</label>
-              <select
-                className="filter-select"
-                value={selectedFilterYear}
-                onChange={(e) => setSelectedFilterYear(e.target.value)}
-              >
-                <option value="">Select Year</option>
-                {Array.from({length: currentYear - 2000 + 1}, (_, i) => currentYear - i)
-                  .map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))
-                }
-              </select>
-            </div>
-            <button
-              className="clear-filters-btn"
-              onClick={() => {
-                setSelectedFilterMonth('');
-                setSelectedFilterYear('');
-              }}
-            >
-              Clear Filters
-            </button>
-          </div>
-        </div>
-
-        {/* Current/Latest Payslip Section */}
-        <div className="current-payslip-section">
-          <h4 className="section-title">Current Payslip</h4>
-          {(() => {
-            // Get filtered payslips based on selected filters
-            const filteredPayslips = selectedEmployeePayslips.filter(payslip => {
-              const monthMatch = !selectedFilterMonth || payslip.month === selectedFilterMonth;
-              const yearMatch = !selectedFilterYear || payslip.year.toString() === selectedFilterYear;
-              return monthMatch && yearMatch;
-            });
-
-            // Find current month payslip or latest available payslip
-            let displayPayslip = null;
-           
-            if (selectedFilterMonth || selectedFilterYear) {
-              // If filters are applied, show the most recent payslip from filtered results
-              displayPayslip = filteredPayslips.sort((a, b) => {
-                const dateA = new Date(a.year, months.indexOf(a.month));
-                const dateB = new Date(b.year, months.indexOf(b.month));
-                return dateB - dateA;
-              })[0];
-            } else {
-              // No filters - try current month first, then previous month
-              displayPayslip = selectedEmployeePayslips.find(payslip =>
-                payslip.month === currentMonth && payslip.year === currentYear
-              );
-             
-              if (!displayPayslip) {
-                // If no current month payslip, find the latest available payslip
-                displayPayslip = selectedEmployeePayslips.sort((a, b) => {
-                  const dateA = new Date(a.year, months.indexOf(a.month));
-                  const dateB = new Date(b.year, months.indexOf(b.month));
-                  return dateB - dateA;
-                })[0];
-              }
-            }
-           
-            return displayPayslip ? (
-              <div className="current-payslip-card">
-                <div className="payslip-header">
-                  <div className="payslip-period">
-                    {displayPayslip.month} {displayPayslip.year}
+            <div className="modal-body">
+              {/* Filter Controls */}
+              <div className="filter-section">
+                <h4 className="section-title">Filter Payslips</h4>
+                <div className="filter-controls">
+                  <div className="filter-group">
+                    <label className="filter-label">Month</label>
+                    <select
+                      className="filter-select"
+                      value={selectedFilterMonth}
+                      onChange={(e) => setSelectedFilterMonth(e.target.value)}
+                    >
+                      <option value="">Select Month</option>
+                      {months.map(month => (
+                        <option key={month} value={month}>{month}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div className="payslip-amount-section">
-                    <div className="amount-display">
-                      <span className="amount-label">Net Amount:</span>
-                      <div className="amount-container">
-                        <span className="amount-value">
-                          {isAmountVisible ? `Rs.${displayPayslip.netPay?.toFixed(2)}` : '********'}
-                        </span>
+                  <div className="filter-group">
+                    <label className="filter-label">Year</label>
+                    <select
+                      className="filter-select"
+                      value={selectedFilterYear}
+                      onChange={(e) => setSelectedFilterYear(e.target.value)}
+                    >
+                      <option value="">Select Year</option>
+                      {Array.from({length: currentYear - 2000 + 1}, (_, i) => currentYear - i)
+                        .map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+                  <button
+                    className="clear-filters-btn"
+                    onClick={() => {
+                      setSelectedFilterMonth('');
+                      setSelectedFilterYear('');
+                    }}
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+
+              {/* Current/Latest Payslip Section */}
+              <div className="current-payslip-section">
+                <h4 className="section-title">Current Payslip</h4>
+                {(() => {
+                  // Get filtered payslips based on selected filters
+                  const filteredPayslips = selectedEmployeePayslips.filter(payslip => {
+                    const monthMatch = !selectedFilterMonth || payslip.month === selectedFilterMonth;
+                    const yearMatch = !selectedFilterYear || payslip.year.toString() === selectedFilterYear;
+                    return monthMatch && yearMatch;
+                  });
+
+                  // Find current month payslip or latest available payslip
+                  let displayPayslip = null;
+                
+                  if (selectedFilterMonth || selectedFilterYear) {
+                    // If filters are applied, show the most recent payslip from filtered results
+                    displayPayslip = filteredPayslips.sort((a, b) => {
+                      const dateA = new Date(a.year, months.indexOf(a.month));
+                      const dateB = new Date(b.year, months.indexOf(b.month));
+                      return dateB - dateA;
+                    })[0];
+                  } else {
+                    // No filters - try current month first, then previous month
+                    displayPayslip = selectedEmployeePayslips.find(payslip =>
+                      payslip.month === currentMonth && payslip.year === currentYear
+                    );
+                  
+                    if (!displayPayslip) {
+                      // If no current month payslip, find the latest available payslip
+                      displayPayslip = selectedEmployeePayslips.sort((a, b) => {
+                        const dateA = new Date(a.year, months.indexOf(a.month));
+                        const dateB = new Date(b.year, months.indexOf(b.month));
+                        return dateB - dateA;
+                      })[0];
+                    }
+                  }
+                
+                  return displayPayslip ? (
+                    <div className="current-payslip-card">
+                      <div className="payslip-header">
+                        <div className="payslip-period">
+                          {displayPayslip.month} {displayPayslip.year}
+                        </div>
+                        <div className="payslip-amount-section">
+                          <div className="amount-display">
+                            <span className="amount-label">Net Amount:</span>
+                            <div className="amount-container">
+                              <span className="amount-value">
+                                {isAmountVisible ? `Rs.${displayPayslip.netPay?.toFixed(2)}` : '********'}
+                              </span>
+                              <button
+                                className="toggle-amount-btn"
+                                onClick={() => setIsAmountVisible(!isAmountVisible)}
+                                type="button"
+                              >
+                                <svg
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  {isAmountVisible ? (
+                                    // Eye with slash icon (visible state)
+                                    <>
+                                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                                    </>
+                                  ) : (
+                                    // Eye icon (hidden state)
+                                    <>
+                                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                      <circle cx="12" cy="12" r="3"></circle>
+                                    </>
+                                  )}
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="payslip-details">
+                        <div className="payslip-date">
+                          Generated: {new Date(displayPayslip.createdAt).toLocaleDateString()}
+                        </div>
+
+                      <div className="payslip-actions">
                         <button
-                          className="toggle-amount-btn"
-                          onClick={() => setIsAmountVisible(!isAmountVisible)}
-                          type="button"
+                          onClick={() => handleDownloadPayslip(displayPayslip._id)}
+                          className="action-btns primary"
                         >
-                          <svg
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            {isAmountVisible ? (
-                              // Eye with slash icon (visible state)
-                              <>
-                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                                <line x1="1" y1="1" x2="23" y2="23"></line>
-                              </>
-                            ) : (
-                              // Eye icon (hidden state)
-                              <>
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-                              </>
-                            )}
-                          </svg>
+                          Download
+                        </button>
+                        <button
+                          onClick={() => handleDeletePayslip(displayPayslip._id)}
+                          className="action-btns danger"
+                        >
+                          Delete
                         </button>
                       </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div className="payslip-details">
-                  <div className="payslip-date">
-                    Generated: {new Date(displayPayslip.createdAt).toLocaleDateString()}
-                  </div>
-                  {/* <span className="payslip-status">GENERATED</span> */}
-
-                <div className="payslip-actions">
-                  <button
-                    onClick={() => handleDownloadPayslip(displayPayslip._id)}
-                    className="action-btns primary"
-                  >
-                    Download
-                  </button>
-                  <button
-                    onClick={() => handleDeletePayslip(displayPayslip._id)}
-                    className="action-btns danger"
-                  >
-                    Delete
-                  </button>
-                </div>
-                </div>
+                  ) : (
+                    <div className="no-current-payslip">
+                      <p>No payslip found for the selected filters</p>
+                    </div>
+                  );
+                })()}
               </div>
-            ) : (
-              <div className="no-current-payslip">
-                <p>No payslip found for the selected filters</p>
-              </div>
-            );
-          })()}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
     </div>
   );
