@@ -142,7 +142,7 @@ salaryTemplateSchema.statics.createSalaryFromTemplate = async function(employee,
     paidDays: 30, // Default full month
     lopDays: 0,
     casualLeaveTaken: 0,
-    casualLeaveReamining: 0,
+    casualLeaveRemaining: 0,
     sickLeaveTaken: 0,
     sickLeaveRemaining: 0,
     earnings: template.earnings,
