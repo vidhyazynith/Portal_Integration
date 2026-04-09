@@ -567,291 +567,250 @@ router.get('/payslip/:id/download', async (req, res) => {
 
 
      
-// Create PDF
-    const doc = new PDFDocument();
-    const filename = `payslip-${payslip.employeeId}-${payslip.month}-${payslip.year}.pdf`;
-   
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-   
-    doc.pipe(res);
-        let company = await Company.findOne();
-       if (!company) {
-          console.log('❌ Company information not found for download');
-          return res.status(404).json({ 
-            message: "Company information not found. Please set up company details first in Company Settings." 
-          });
-        }
-         if (!company.companyName || !company.address) {
-          console.log('❌ Company information incomplete for download');
-          return res.status(400).json({ 
-            message: "Company information is incomplete. Please complete company details in Company Settings." 
-          });
-        }
-    
-        let logoBuffer = null;
-        let signatureBuffer = null;
-     
-        try {
-          // Load logo from Cloudinary
-          if (company.logo?.url) {
-            const logoResponse = await axios({
-              method: 'GET',
-              url: company.logo.url,
-              responseType: 'arraybuffer',
-              timeout: 10000
-            });
-            logoBuffer = Buffer.from(logoResponse.data);
-            console.log("✅ Logo loaded from Cloudinary for download");
-          }
-        } catch (logoError) {
-          console.error("❌ Error loading logo from Cloudinary:", logoError.message);
-        }
-     
-        try {
-          // Load signature from Cloudinary
-          if (company.signature?.url) {
-            const signatureResponse = await axios({
-              method: 'GET',
-              url: company.signature.url,
-              responseType: 'arraybuffer',
-              timeout: 10000
-            });
-            signatureBuffer = Buffer.from(signatureResponse.data);
-            console.log("✅ Signature loaded from Cloudinary for download");
-          }
-        } catch (signatureError) {
-          console.error("❌ Error loading signature from Cloudinary:", signatureError.message);
-        }
-    doc.fontSize(18).fillColor("#000").text("Zynith IT Solutions", 100, 45);
-    doc.fontSize(10).fillColor("gray").text("Chennai, India", 100, 65);
-    doc.fontSize(15).fillColor("gray").text("Payslip For the Month", 350, 47);
-    doc.fontSize(12).text(`${payslip.month} ${payslip.year}`, 300, 75,{
-      width:170,
-      align:'right'
-    });
- 
-    doc.moveTo(50, 100).lineTo(550, 100).strokeColor("#ccc").stroke();
- 
-    doc.fontSize(12).fillColor("black").text("EMPLOYEE SUMMARY", 50, 130);
- 
-    doc.fontSize(11).fillColor("gray").text("Employee Name", 50, 150);
-    doc.text(":", 138, 150);
-    doc.fontSize(11).fillColor("black").text(payslip.name, 150, 150);
- 
-    doc.fontSize(11).fillColor("gray").text("Employee ID", 50, 170);
-    doc.text(":", 138, 170);
-    doc.fontSize(11).fillColor("black").text(payslip.employeeId, 150, 170);
- 
-    doc.fontSize(11).fillColor("gray").text("Designation", 50, 190);
-    doc.text(":", 138, 190);
-    doc.fontSize(11).fillColor("black").text(payslip.designation, 150, 190);
- 
-    doc.fontSize(11).fillColor("gray").text("Pay Period", 50, 210);
-    doc.text(":", 138, 210);
-   doc.fontSize(11).fillColor("black").text(`${payslip.month} ${payslip.year}`, 150, 210);
- 
-    doc.fontSize(11).fillColor("gray").text("Pay Date", 50, 230);
-    doc.text(":", 138, 230);
-    doc.fontSize(11).fillColor("black").text(`${(payslip.payDate).toLocaleDateString("en-GB")}`,150, 230);
- 
-    doc.fontSize(11).fillColor("gray").text("Pan No", 50, 250);
-    doc.text(":", 138, 250);
-    doc.fontSize(11).fillColor("black").text(payslip.panNo, 150, 250);
-   
- 
-    const boxX = 350;
-    const boxY = 130;
-    const boxWidth = 200;
-    const boxHeight = 120;
-    const radius = 10;
- 
-    doc.save();
-    doc.roundedRect(boxX, boxY, boxWidth, boxHeight-65, radius)
-    .fillOpacity(1)   // solid
-    .fillAndStroke("#f2fef6", "#cccccc"); // very light green + grey border
-    doc.restore();
- 
-    doc.save();
-    doc.roundedRect(boxX, boxY+68, boxWidth, boxHeight-65, radius)
-    .fillOpacity(1)   // solid
-    .fillAndStroke("#e6f3ff", "#cccccc"); // very light green + grey border
-    doc.restore();
-   
-    // ✅ Bold Green Monthly CTC
-    doc.fontSize(18).fillColor("#0a9f49").font("Helvetica-Bold")
-    .text("Rs.", boxX+15, boxY+15);
-    doc.text(payslip.netPay.toFixed(2), boxX + 46, boxY + 15); //
- 
-    doc.fontSize(11).fillColor("black").font("Helvetica")
-    .text("Total Net Payable", boxX+15, boxY + 34);
- 
-    // Paid Days / LOP Days
-    doc.fontSize(11).fillColor("black").text("Paid Days :", boxX +20, boxY + 80);
-    doc.text(payslip.paidDays, boxX + 120, boxY + 80);
- 
-    doc.text("LOP Days :", boxX + 20, boxY + 100);
-    doc.text(payslip.lopDays, boxX + 120, boxY + 100);
- 
-    doc.moveTo(50, 283).lineTo(550, 283).strokeColor("#ccc").stroke();
- 
-    doc.moveDown(2);
- 
-    doc.fontSize(11).fillColor("gray").text("Causal Leave Taken", 150, 293);
-    doc.text(":", 251, 293);
-    doc.fontSize(11).fillColor("black").text(payslip.casualLeaveTaken, 263, 293);
- 
-    doc.fontSize(11).fillColor("gray").text("Sick Leave Taken", 350, 293);
-    doc.text(":", 438, 293);
-    doc.fontSize(11).fillColor("black").text(payslip.sickLeaveTaken, 450, 293);
- 
-//-----------------------------------------------------------------------
-// DYNAMIC TABLE SECTION - UPDATED
-    const tableX = 50;
-    const tableWidth = 500;
-   
-    // Calculate dynamic table height based on content
-    const rowHeight = 18;
-    const headerHeight = 30;
-    const padding = 10;
-    const minRows = 3; // Minimum rows to show even if less items
- 
-    const earningsRows = Math.max(payslip.earnings.length, minRows);
-    const deductionsRows = Math.max(payslip.deductions.length, minRows);
-    const maxRows = Math.max(earningsRows, deductionsRows);
- 
-    const tableHeight = headerHeight + (maxRows * rowHeight) + padding + 20;
-    const tableY = 310;
- 
-    doc.save();
-    doc.roundedRect(tableX, tableY, tableWidth, tableHeight, radius)
-    .fillAndStroke("#ffffff","#cccccc");
-    doc.restore();
- 
-    // Table Headers
-    doc.fontSize(11).font("Helvetica-Bold").fillColor("black");
- 
-    doc.text("EARNINGS", tableX + 20, tableY + 8);
-    doc.text("AMOUNT", tableX + 170, tableY + 8);
- 
-    doc.text("DEDUCTIONS", tableX + 270, tableY + 8);
-    doc.text("AMOUNT", tableX + 430, tableY + 8);
- 
-    doc.moveTo(tableX + 20, tableY + 22)
-    .lineTo(tableX + 250, tableY + 22)
-    .dash(2, { space: 2 })
-    .strokeColor("#999999")
-    .stroke()
-    .undash();
- 
-    doc.moveTo(tableX + 270, tableY + 22)
-    .lineTo(tableX + 480, tableY + 22)
-    .dash(2, { space: 2 })
-    .strokeColor("#999999")
-    .stroke()
-    .undash();
- 
-    // Reset font
-    doc.fontSize(11).font("Helvetica").fillColor("black");
- 
-    // Earnings Loop
-    let y = tableY + 38;
-    payslip.earnings.forEach(e => {
-        doc.text(`${e.type}`, tableX + 20, y);
-        doc.text("Rs .", tableX + 140, y);
-        doc.text(`${e.amount.toFixed(2)}`, tableX + 170, y, { align: "right", width: 50 });
-        y += rowHeight;
-    });
-    // Fill empty rows for earnings if needed
-    for (let i = payslip.earnings.length; i < maxRows; i++) {
-        doc.text("", tableX + 20, y);
-        y += rowHeight;
+  // Create PDF
+  const doc = new PDFDocument();
+  // Create filename using payslip name and month/year
+  const filename = `${payslip.name}_${payslip.month}_${payslip.year}.pdf`;
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+  doc.pipe(res);
+  
+  // ─── HEADER ───────────────────────────────────────────────────────────────────
+  doc.fontSize(15).fillColor("gray").text("Payslip For the Month", 380, 42,{
+    width: 170,
+    align: 'right'
+  });
+  doc.fontSize(12).text(`${payslip.month} ${payslip.year}`, 380, 70, {
+    width: 170,
+    align: 'right'
+  });
+  
+  // ─── LOGO ─────────────────────────────────────────────────────────────────────
+  let company = await Company.findOne();
+  if (!company) {
+    return res.status(404).json({ message: "Company information not found. Please set up company details first." });
+  }
+  let logoBuffer = null;
+  try {
+    if (company.logo?.url) {
+      const logoResponse = await axios({
+        method: 'GET',
+        url: company.logo.url,
+        responseType: 'arraybuffer',
+        timeout: 10000
+      });
+      logoBuffer = Buffer.from(logoResponse.data);
+      console.log("✅ Logo loaded from Cloudinary for download");
     }
- 
-    // Deductions Loop
-    let y2 = tableY + 38;
-    payslip.deductions.forEach(d => {
-        doc.text(`${d.type}`, tableX + 270, y2);
-        doc.text("Rs .", tableX + 400, y2);
-        doc.text(`${d.amount.toFixed(2)}`, tableX + 430, y2, { align: "right", width: 50 });
-        y2 += rowHeight;
-    });
- 
-    // Fill empty rows for deductions if needed
-    for (let i = payslip.deductions.length; i < maxRows; i++) {
-        doc.text("", tableX + 270, y2);
-        y2 += rowHeight;
-    }
- 
-    // Calculate position for summary separator lines
-    const summaryLineY = tableY + headerHeight + (maxRows * rowHeight) + 2;
- 
-    doc.moveTo(tableX + 20, summaryLineY)
-    .lineTo(tableX + 250, summaryLineY)
-    .dash(2, { space: 2 })
-    .strokeColor("#999999")
-    .stroke()
-    .undash();
- 
-    doc.moveTo(tableX + 270, summaryLineY)
-    .lineTo(tableX + 480, summaryLineY)
-    .dash(2, { space: 2 })
-    .strokeColor("#999999")
-    .stroke()
-    .undash();
- // Summary section - FIXED Rs POSITION
-    const summaryY = summaryLineY + 5;
-    doc.font("Helvetica-Bold").text("Gross Earnings", tableX + 20, summaryY);
-    // Fixed Rs position for gross earnings
-    doc.text("Rs .", tableX + 140, summaryY);
-    doc.text(`${payslip.grossEarnings.toFixed(2)}`, tableX + 170, summaryY, { align: "right", width: 50 });
- 
-    doc.font("Helvetica-Bold").text("Total Deductions", tableX + 270, summaryY);
-    // Fixed Rs position for total deductions
-    doc.text("Rs .", tableX + 400, summaryY);
-    doc.text(`${payslip.totalDeductions.toFixed(2)}`, tableX + 430, summaryY, { align: "right", width: 50 });
- 
-    // Calculate position for net pay section (pushed down based on table height)
-    const netPayY = tableY + tableHeight + 20;
- 
-//----------------------------------------------------------------------------------------------
-    // NET PAY SECTION - Updated to use dynamic position
-    doc.save();
-    doc.roundedRect(50, netPayY, 500, 45, radius)
-    .strokeColor("#cccccc")
-    .lineWidth(1)
-    .stroke();
- 
-    const greenWidth = 150; // adjust width of green area
-    doc.save();
-    doc.roundedRect(50 + (500 - greenWidth), netPayY, greenWidth, 45, radius)
-        .clip(); // clip only right section
-    doc.rect(50 + (500 - greenWidth), netPayY, greenWidth, 45)
-        .fill("#e6f9ef"); // light green fill
-    doc.restore();
 
-   // Centered text for TOTAL GROSS PAYABLE
-const netPayBoxWidth = 500;
-const textWidth = doc.widthOfString("TOTAL GROSS PAYABLE");
-const centerX = 50 + (netPayBoxWidth - textWidth) / 2;
- 
-// Centered text for TOTAL GROSS PAYABLE - more left adjustment
-doc.font("Helvetica-Bold").fontSize(10).fillColor("black")
-.text("TOTAL GROSS PAYABLE", 50, netPayY + 16, {
-    width: 300,
-    align: 'center'
-});
-    // Right text (Gross Earnings in bold) - CHANGED FROM netPay TO grossEarnings
-    doc.font("Helvetica-Bold").fontSize(14).fillColor("black")
-    .text(`Rs. ${payslip.grossEarnings.toFixed(2)}`, 300, netPayY + 18, { // CHANGED HERE
-        align: "right",
-        width: boxWidth - 10
+  } catch (logoError) {
+    console.error("❌ Error loading logo from Cloudinary:", logoError.message);
+  }
+  
+  const logoWidth  = 120;
+  const logoHeight = 80;
+  const logoX      = 40;
+
+  if (logoBuffer) {
+
+    try {
+      doc.image(logoBuffer, logoX, 10, { width: logoWidth, height: logoHeight });
+      console.log("✅ Company logo added to PDF");
+    } catch (logoError) {
+      console.error("❌ Error adding logo to PDF:", logoError.message);
+    }
+  }
+  
+  // ─── DIVIDER ──────────────────────────────────────────────────────────────────
+  doc.moveTo(50, 100).lineTo(550, 100).strokeColor("#ccc").stroke();
+  
+  // ─── EMPLOYEE SUMMARY ─────────────────────────────────────────────────────────
+  doc.fontSize(12).fillColor("black").text("EMPLOYEE SUMMARY", 50, 130);
+  const labelX  = 50;
+  const colonX  = 145;
+  const valueX  = 158;
+  const lineGap = 20;
+  let   infoY   = 150;
+  const summaryRows = [
+
+    ["Employee Name", payslip.name],
+    ["Employee ID",   payslip.employeeId],
+    ["Designation",   payslip.designation],
+    ["Pay Period",    `${payslip.month} ${payslip.year}`],
+    ["Pay Date",      `${payslip.payDate.toLocaleDateString("en-GB")}`],
+    ["Pan No",        payslip.panNo],
+
+  ];
+  
+  summaryRows.forEach(([label, value]) => {
+    doc.fontSize(11).fillColor("gray").text(label,  labelX, infoY);
+    doc.fontSize(11).fillColor("gray").text(":",    colonX, infoY);
+    doc.fontSize(11).fillColor("black").text(value, valueX, infoY);
+    infoY += lineGap;
+
+  });
+  
+  // ─── RIGHT SUMMARY BOXES ──────────────────────────────────────────────────────
+  const boxX      = 350;
+  const boxY      = 130;
+  const boxWidth  = 200;
+  const radius    = 10;
+
+  // Net Pay box (green tint)
+  doc.save();
+  doc.roundedRect(boxX, boxY, boxWidth, 55, radius)
+    .fillOpacity(1)
+    .fillAndStroke("#f2fef6", "#cccccc");
+  doc.restore();
+  
+  // Paid/LOP box (blue tint)
+  doc.save();
+  doc.roundedRect(boxX, boxY + 68, boxWidth, 55, radius)
+    .fillOpacity(1)
+    .fillAndStroke("#e6f3ff", "#cccccc");
+  doc.restore();
+  
+  // Net Pay values
+  doc.fontSize(18).fillColor("#0a9f49").font("Helvetica-Bold")
+    .text("Rs.", boxX + 15, boxY + 10);
+  doc.text(payslip.netPay.toFixed(2), boxX + 46, boxY + 10);
+  doc.fontSize(11).fillColor("black").font("Helvetica")
+    .text("Total Net Payable", boxX + 15, boxY + 32);
+  
+  // Paid Days / LOP Days
+  doc.fontSize(11).fillColor("black")
+    .text("Paid Days :", boxX + 20, boxY + 78);
+  doc.text(String(payslip.paidDays), boxX + 120, boxY + 78);
+  doc.text("LOP Days :", boxX + 20, boxY + 98);
+  doc.text(String(payslip.lopDays), boxX + 120, boxY + 98);
+  
+  // ─── DIVIDER ──────────────────────────────────────────────────────────────────
+  doc.moveTo(50, 283).lineTo(550, 283).strokeColor("#ccc").stroke();
+  
+  // ─── LEAVE ROW ────────────────────────────────────────────────────────────────
+  doc.fontSize(11).fillColor("gray").text("Casual Leave Taken",  50,  293);
+  doc.fontSize(11).fillColor("gray").text(":",                  183,  293);
+  doc.fontSize(11).fillColor("black").text(String(payslip.casualLeaveTaken), 195, 293);
+  doc.fontSize(11).fillColor("gray").text("Sick Leave Taken",   310,  293);
+  doc.fontSize(11).fillColor("gray").text(":",                  420,  293);
+  doc.fontSize(11).fillColor("black").text(String(payslip.sickLeaveTaken),   432, 293);
+  
+  // ─── EARNINGS / DEDUCTIONS TABLE ─────────────────────────────────────────────
+  const tableX     = 50;
+  const tableWidth = 500;
+  const rowHeight  = 20;
+  const headerH    = 30;
+  const minRows    = 3;
+  const earningsRows   = Math.max(payslip.earnings.length,   minRows);
+  const deductionsRows = Math.max(payslip.deductions.length, minRows);
+  const maxRows        = Math.max(earningsRows, deductionsRows);
+  const tableHeight = headerH + (maxRows * rowHeight) + 30;
+  const tableY      = 310;
+  
+  // Table border
+  doc.save();
+  doc.roundedRect(tableX, tableY, tableWidth, tableHeight, radius)
+    .fillAndStroke("#ffffff", "#cccccc");
+  doc.restore();
+  
+  // ── Column X positions (consistent everywhere) ────────────────────────────────
+  const E_LABEL_X  = tableX + 20;   // Earnings label
+  const E_RS_X     = tableX + 155;  // Earnings "Rs."
+  const E_AMT_X    = tableX + 172;  // Earnings amount (right-aligned, width 55)
+  const D_LABEL_X  = tableX + 265;  // Deductions label
+  const D_RS_X     = tableX + 415;  // Deductions "Rs."
+  const D_AMT_X    = tableX + 432;  // Deductions amount (right-aligned, width 55)
+  
+  // Table headers
+  doc.fontSize(11).font("Helvetica-Bold").fillColor("black");
+  doc.text("EARNINGS",   E_LABEL_X, tableY + 8);
+  doc.text("AMOUNT",     E_RS_X,    tableY + 8);
+  doc.text("DEDUCTIONS", D_LABEL_X, tableY + 8);
+  doc.text("AMOUNT",     D_RS_X,    tableY + 8);
+  
+  // Dashed header underlines
+  doc.moveTo(E_LABEL_X, tableY + 22).lineTo(tableX + 255, tableY + 22)
+    .dash(2, { space: 2 }).strokeColor("#999999").stroke().undash();
+  doc.moveTo(D_LABEL_X, tableY + 22).lineTo(tableX + 490, tableY + 22)
+    .dash(2, { space: 2 }).strokeColor("#999999").stroke().undash();
+  
+  // Reset font
+  doc.fontSize(11).font("Helvetica").fillColor("black");
+  
+  // Earnings rows
+  let ey = tableY + headerH + 8;
+  payslip.earnings.forEach(e => {
+    doc.text(e.type,                    E_LABEL_X, ey);
+    doc.text("Rs.",                     E_RS_X,    ey);
+    doc.text(e.amount.toFixed(2),       E_AMT_X,   ey, { align: "right", width: 55 });
+    ey += rowHeight;
+  });
+
+  for (let i = payslip.earnings.length; i < maxRows; i++) { ey += rowHeight; }
+  
+  // Deductions rows
+  let dy = tableY + headerH + 8;
+  payslip.deductions.forEach(d => {
+    doc.text(d.type,                    D_LABEL_X, dy);
+    doc.text("Rs.",                     D_RS_X,    dy);
+    doc.text(d.amount.toFixed(2),       D_AMT_X,   dy, { align: "right", width: 55 });
+    dy += rowHeight;
+  });
+
+  for (let i = payslip.deductions.length; i < maxRows; i++) { dy += rowHeight; }
+  
+  // Dashed summary underlines
+  const sepY = tableY + headerH + (maxRows * rowHeight) + 8;
+  doc.moveTo(E_LABEL_X, sepY).lineTo(tableX + 255, sepY)
+    .dash(2, { space: 2 }).strokeColor("#999999").stroke().undash();
+  doc.moveTo(D_LABEL_X, sepY).lineTo(tableX + 490, sepY)
+    .dash(2, { space: 2 }).strokeColor("#999999").stroke().undash();
+  
+  // Summary row (Gross Earnings / Total Deductions)
+  const sumY = sepY + 8;
+  doc.font("Helvetica-Bold").fillColor("black");
+  doc.text("Gross Earnings",    E_LABEL_X, sumY);
+  doc.text("Rs.",               E_RS_X,    sumY);
+  doc.text(payslip.grossEarnings.toFixed(2),  E_AMT_X, sumY, { align: "right", width: 55 });
+  doc.text("Total Deductions",  D_LABEL_X, sumY);
+  doc.text("Rs.",               D_RS_X,    sumY);
+  doc.text(payslip.totalDeductions.toFixed(2), D_AMT_X, sumY, { align: "right", width: 55 });
+  
+  // ─── NET PAY SECTION ──────────────────────────────────────────────────────────
+  const netPayY = tableY + tableHeight + 20;
+  
+  // Outer box
+  doc.save();
+  doc.roundedRect(50, netPayY, 500, 45, radius)
+    .strokeColor("#cccccc").lineWidth(1).stroke();
+  
+  // Green right panel
+  const greenWidth = 200;
+  doc.save();
+  doc.roundedRect(50 + (500 - greenWidth), netPayY, greenWidth, 45, radius).clip();
+  doc.rect(50 + (500 - greenWidth), netPayY, greenWidth, 45).fill("#e6f9ef");
+  doc.restore();
+  doc.restore();
+  
+  // "TOTAL GROSS PAYABLE" label — centered in left 300px zone
+  doc.font("Helvetica-Bold").fontSize(10).fillColor("black")
+    .text("TOTAL GROSS PAYABLE", 80, netPayY + 18, { width: 300, align: "left" });
+  
+  // Amount — right-aligned inside green panel
+  doc.font("Helvetica-Bold").fontSize(14).fillColor("black")
+    .text(`Rs. ${payslip.grossEarnings.toFixed(2)}`, 350, netPayY + 17, {
+      align: "right",
+      width: 185
     });
- 
-    const amountWords = numberToWords.toWords(payslip.grossEarnings).replace(/\b\w/g, c => c.toUpperCase()); // CHANGED HERE
-    doc.font("Helvetica-Bold").fontSize(10).fillColor("black").text(`${amountWords} Rupees Only`, 50, netPayY + 60, { width: 450, align: "center" });
-    doc.moveTo(50, netPayY + 80).lineTo(550, netPayY + 80).strokeColor("#ccc").stroke();
-    doc.end();
+  
+  // Amount in words — centered below box
+  const amountWords = numberToWords.toWords(payslip.grossEarnings)
+    .replace(/\b\w/g, c => c.toUpperCase());
+  doc.font("Helvetica-Bold").fontSize(10).fillColor("black")
+    .text(`${amountWords} Rupees Only`, 50, netPayY + 60, { width: 500, align: "center" });
+  // Final divider
+  doc.moveTo(50, netPayY + 80).lineTo(550, netPayY + 80).strokeColor("#ccc").stroke();
+  doc.end();
   } catch (error) {
     console.error('Error generating PDF:', error);
     res.status(500).json({ message: 'Server error while generating PDF' });
