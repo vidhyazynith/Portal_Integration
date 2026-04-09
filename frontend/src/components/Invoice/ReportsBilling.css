@@ -949,8 +949,6 @@ body {
   overflow-x: hidden;
 }
 
-/* Add these new styles to your existing ReportsBilling.css */
-
 /* New column styles for invoice items table */
 .column-description {
   width: 140px; 

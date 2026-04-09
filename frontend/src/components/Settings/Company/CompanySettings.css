@@ -238,7 +238,7 @@
   background: linear-gradient(135deg, #6b7280, #4b5563);
   color: white;
   border: none;
-  padding: 14px 28px; /* 👈 Reduced from 14px 28px */
+  padding: 14px 28px; 
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
