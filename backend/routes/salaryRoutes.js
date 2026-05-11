@@ -10,7 +10,7 @@ import numberToWords from 'number-to-words';
 import axios from "axios";
 import path from "path";
 import fs from 'fs';
-const HR_API = process.env.HR_API_URL || 'http://192.168.88.21:5000'; // HR service URL from env or default
+const HR_API = process.env.HR_API_URL || 'https://zynith-hr-backend.onrender.com'; // HR service URL from env or default
 
 const router = express.Router(); 
 
