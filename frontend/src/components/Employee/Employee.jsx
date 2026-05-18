@@ -205,8 +205,8 @@ const EmployeeManagement = () => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: "center" }}>
-                  Loading...
+                <td colSpan="7" style={{ textAlign: "center", padding: "40px" }}>
+                  <div className="spinner-loader"></div>
                 </td>
               </tr>
             ) : filteredEmployees.length === 0 ? (
@@ -216,7 +216,13 @@ const EmployeeManagement = () => {
                 </td>
               </tr>
             ) : (
-              filteredEmployees.map((emp) => (
+              filteredEmployees
+                .sort((a, b) => {
+                  const idA = parseInt(a.employeeId?.replace(/\D/g, '') || 0);
+                  const idB = parseInt(b.employeeId?.replace(/\D/g, '') || 0);
+                  return idA - idB;
+                })
+                .map((emp) => (
                 <tr 
                   key={emp._id || emp.employeeId}
                   onClick={() => handleEmployeeClick(emp)} // NEW: Click handler
