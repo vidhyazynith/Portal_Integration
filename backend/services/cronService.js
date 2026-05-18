@@ -41,3 +41,34 @@ export const startHikeCronJob = () => {
   console.log('✅ Hike status cron job started');
 };
 
+/**
+ * Start the cron job for updating salary month on the 1st of every month
+ * Updates salary records to show current month to next month (e.g., "May to June")
+ * @returns {void}
+ */
+export const startSalaryMonthUpdateJob = () => {
+  // Run at midnight (00:00) on the 1st of every month
+  cron.schedule('0 0 1 * *', async () => {
+    try {
+      console.log('📅 Updating salary month for the new month...');
+      
+      const today = new Date();
+      const currentMonthName = today.toLocaleString('default', { month: 'long' });
+      const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      const nextMonthName = nextMonthDate.toLocaleString('default', { month: 'long' });
+      
+      const salaryMonthUpdate = `${currentMonthName} to ${nextMonthName}`;
+      
+      // Update all salary records with new month format
+      const result = await Salary.updateMany({}, { $set: { month: salaryMonthUpdate } });
+      
+      console.log(`✅ Salary month updated to "${salaryMonthUpdate}" for ${result.modifiedCount} records`);
+      
+    } catch (error) {
+      console.error('❌ Error updating salary month:', error);
+    }
+  });
+
+  console.log('✅ Salary month update cron job started');
+};
+

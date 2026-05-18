@@ -15,7 +15,7 @@ import companyRoutes from './routes/companyRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js'
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { startHikeCronJob  } from './services/cronService.js';
+import { startHikeCronJob, startSalaryMonthUpdateJob } from './services/cronService.js';
 import Salary from './models/Salary.js'; // Import Salary model for manual trigger
 import salaryTemplateRoutes from './routes/salaryTemplateRoutes.js';
 import DesignationRoutes from './routes/designationRoutes.js';
@@ -119,9 +119,9 @@ mongoose.connect(process.env.MONGODB_URI,
   }
 )
   .then(() =>{ console.log('✅ Connected to MongoDB');
-  // Start the cron job after successful database connection
+  // Start the cron jobs after successful database connection
     startHikeCronJob();
-    //startMonthlyUpdateCronJob (); 
+    startSalaryMonthUpdateJob();
     })
   .catch((error) => console.error('❌ MongoDB connection error:', error));
 
