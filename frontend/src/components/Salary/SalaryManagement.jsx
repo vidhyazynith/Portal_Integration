@@ -24,6 +24,26 @@ const SalaryManagement = () => {
   const [hikeStartDate, setHikeStartDate] = useState('');
   const [previousMonthLeaves, setPreviousMonthLeaves] = useState(0);
  
+  const sortSalariesByEmployeeId = (salaries) => {
+    return [...salaries].sort((a, b) => {
+      const normalize = (value) => {
+        if (!value) return '';
+        return value.toString().trim();
+      };
+
+      const aId = normalize(a.employeeId);
+      const bId = normalize(b.employeeId);
+      const numA = parseInt(aId.replace(/\D/g, ''), 10);
+      const numB = parseInt(bId.replace(/\D/g, ''), 10);
+
+      if (!Number.isNaN(numA) && !Number.isNaN(numB)) {
+        if (numA !== numB) return numA - numB;
+      }
+
+      return aId.localeCompare(bId);
+    });
+  };
+ 
   // Get current month and year
   const currentDate = new Date();
   const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
@@ -165,8 +185,9 @@ const [showAllHikes, setShowAllHikes] = useState(false); // To toggle between la
     setLoading(true);
     try {
       const data = await salaryService.getSalaries();
-      const enabledSalaries = data.salaries.filter(salary => salary.activeStatus === 'enabled');
-      setActiveSalaries(enabledSalaries);
+      const enabledSalaries = data.salaries
+        .filter(salary => salary.activeStatus === 'enabled');
+      setActiveSalaries(sortSalariesByEmployeeId(enabledSalaries));
     } catch (error) {
       console.error('Error loading active salaries:', error);
     } finally {
@@ -178,7 +199,7 @@ const [showAllHikes, setShowAllHikes] = useState(false); // To toggle between la
     try {
       const data = await salaryService.getDisabledSalaries();
       const disabledSalaries = data.salaries || [];
-      setDisabledSalaries(disabledSalaries);
+      setDisabledSalaries(sortSalariesByEmployeeId(disabledSalaries));
     } catch (error) {
       console.error('Error loading disabled salaries:', error);
       setDisabledSalaries([]);
