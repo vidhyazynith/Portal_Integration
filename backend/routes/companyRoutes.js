@@ -16,7 +16,29 @@ router.get("/", authenticateToken, requireRole('admin'), getCompany);
 ========================== */
 router.put("/", authenticateToken, requireRole('admin'), updateCompany);
  
-router.post('/upload-image', upload.single('image'), uploadImage);
+// Error handling middleware for file upload
+const handleUploadError = (err, req, res, next) => {
+  if (err instanceof upload.constructor) {
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'File upload error'
+    });
+  }
+  next(err);
+};
+
+router.post('/upload-image', (req, res, next) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'File upload error'
+      });
+    }
+    next();
+  });
+}, uploadImage);
+
 router.delete('/delete-image/:type',authenticateToken,requireRole('admin'), deleteImage);
  
 export default router;

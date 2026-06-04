@@ -132,6 +132,19 @@ export const uploadImage = async (req, res) => {
         message: "File buffer is missing. Please try uploading again."
       });
     }
+
+    // Verify Cloudinary configuration
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      console.error('Missing Cloudinary configuration:', {
+        CLOUDINARY_CLOUD_NAME: !!process.env.CLOUDINARY_CLOUD_NAME,
+        CLOUDINARY_API_KEY: !!process.env.CLOUDINARY_API_KEY,
+        CLOUDINARY_API_SECRET: !!process.env.CLOUDINARY_API_SECRET
+      });
+      return res.status(500).json({
+        success: false,
+        message: "Server configuration error: Missing Cloudinary credentials"
+      });
+    }
  
     let company = await Company.findOne();
     if (!company) {
@@ -194,24 +207,30 @@ export const uploadImage = async (req, res) => {
       data: company
     });
   } catch (error) {
-    console.error('Error in uploadImage:', error);
+    console.error('❌ Error in uploadImage:', error);
    
     // More specific error messages
     let errorMessage = "Error uploading image";
     if (error.message.includes('timeout')) {
       errorMessage = "Upload timeout. Please try again.";
-    } else if (error.message.includes('credentials') || error.message.includes('Invalid credentials')) {
-      errorMessage = "Cloudinary configuration error. Please check server settings.";
+    } else if (error.message.includes('credentials') || error.message.includes('Invalid credentials') || error.message.includes('Authentication failed')) {
+      errorMessage = "Cloudinary authentication failed. Please verify API credentials in environment variables.";
     } else if (error.http_code === 413) {
       errorMessage = "File too large. Please select a smaller image.";
     } else if (error.message.includes('Upload preset')) {
       errorMessage = "Cloudinary upload preset error. Please check configuration.";
+    } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
+      errorMessage = "Connection timeout to Cloudinary. Please check your internet connection.";
     }
  
     res.status(500).json({
       success: false,
       message: errorMessage,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      debugInfo: process.env.NODE_ENV === 'development' ? {
+        errorType: error.constructor.name,
+        http_code: error.http_code
+      } : undefined
     });
   }
 };
