@@ -12,6 +12,13 @@ import CustomerManagment from '../Customer/CustomerManagment';
 import ReportsBilling from '../Invoice/ReportsBilling';
 import CompanySettings from '../Settings/Company/CompanySettings';
 import CategorySettings from '../Settings/Category/CategorySettings'; 
+import FinancialYearManagement from '../IncomeTax/FinancialYearManagement';
+import TaxRegimeManagement from '../IncomeTax/TaxRegimeManagement';
+import TaxSlabManagement from '../IncomeTax/TaxSlabManagement';
+import DeductionLimitManagement from '../IncomeTax/DeductionLimitManagement';
+import EmployeeTaxRegime from '../IncomeTax/EmployeeTaxRegime';
+import EmployeeTaxDeclaration from '../IncomeTax/EmployeeTaxDeclaration';
+import TaxCalculation from '../IncomeTax/TaxCalculation';
 import './AdminDashboard.css';
 
 const Admin = () => {
@@ -484,6 +491,21 @@ const Admin = () => {
       case 'category-settings':
         return <CategorySettings/>;
 
+      case 'financial-years':
+        return <FinancialYearManagement />;
+      case 'tax-regimes':
+        return <TaxRegimeManagement />;
+      case 'tax-slabs':
+        return <TaxSlabManagement />;
+      case 'deduction-limits':
+        return <DeductionLimitManagement />;
+      case 'employee-tax-regime':
+        return <EmployeeTaxRegime />;
+      case 'employee-tax-declaration':
+        return <EmployeeTaxDeclaration />;
+      case 'tax-calculation':
+        return <TaxCalculation />;
+
       default:
         return (
           <div className="content-area">
@@ -571,7 +593,14 @@ const getSectionTitle = (sectionId) => {
     transactions: 'In/Out Transactions',
     reports: 'Reports & Billing',
     'company-settings': 'Company Settings',
-    'category-settings': 'Category Settings'
+    'category-settings': 'Category Settings',
+    'financial-years': 'Financial Years',
+    'tax-regimes': 'Tax Regimes',
+    'tax-slabs': 'Tax Slabs',
+    'deduction-limits': 'Deduction Limits',
+    'employee-tax-regime': 'Employee Tax Regime',
+    'employee-tax-declaration': 'Employee Tax Declaration',
+    'tax-calculation': 'Tax Calculation'
   };
   return sections[sectionId] || 'Dashboard';
 };

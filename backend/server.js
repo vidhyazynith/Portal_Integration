@@ -19,6 +19,13 @@ import { startHikeCronJob, startSalaryMonthUpdateJob } from './services/cronServ
 import Salary from './models/Salary.js'; // Import Salary model for manual trigger
 import salaryTemplateRoutes from './routes/salaryTemplateRoutes.js';
 import DesignationRoutes from './routes/designationRoutes.js';
+import financialYearRoutes from './routes/financialYearRoutes.js';
+import taxSlabRoutes from './routes/taxSlabRoutes.js';
+import deductionLimitRoutes from './routes/deductionLimitRoutes.js';
+import employeeTaxRegimeRoutes from './routes/employeeTaxRegimeRoutes.js';
+import taxRegimeRoutes from "./routes/taxRegimeRoutes.js";
+import employeeTaxDeclarationRoutes from "./routes/employeeTaxDeclarationRoutes.js";
+import taxCalculationRoutes from "./routes/taxCalculationRoutes.js";
 
 dotenv.config();
 
@@ -45,6 +52,15 @@ app.use('/api/billing', Invoice);
 app.use('/api/company', companyRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/designations', DesignationRoutes);
+
+app.use("/api/tax-regimes", taxRegimeRoutes);
+app.use("/api/financial-years", financialYearRoutes);
+app.use("/api/tax-slabs", taxSlabRoutes);
+app.use("/api/deduction-limits", deductionLimitRoutes);
+app.use("/api/employee-tax-regimes", employeeTaxRegimeRoutes);
+app.use("/api/employee-tax-declarations", employeeTaxDeclarationRoutes);
+app.use("/api/tax-calculation", taxCalculationRoutes );
+
 
 // Health check
 app.get('/api/health', (req, res) => {
