@@ -6,7 +6,7 @@ import {
   getDeductionLimits,
   updateDeductionLimit,
   deleteDeductionLimit,
-} from "../controllers/deductionLimitController.js";
+} from "../Controllers/deductionLimitController.js";
 
 const router = express.Router();
 

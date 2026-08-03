@@ -6,7 +6,7 @@ import {
   getTaxRegimes,
   updateTaxRegime,
   deleteTaxRegime
-} from "../controllers/taxRegimeController.js";
+} from "../Controllers/taxRegimeController.js";
 
 const router = express.Router();
 

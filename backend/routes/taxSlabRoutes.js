@@ -7,7 +7,7 @@ import {
   getTaxSlabById,
   updateTaxSlab,
   deleteTaxSlab,
-} from "../controllers/taxSlabController.js";
+} from "../Controllers/taxSlabController.js";
 
 const router = express.Router();
 

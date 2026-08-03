@@ -3,7 +3,7 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 import {
   calculateTax
-} from "../controllers/taxCalculationController.js";
+} from "../Controllers/taxCalculationController.js";
 
 const router =
   express.Router();

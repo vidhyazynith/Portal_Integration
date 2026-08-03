@@ -8,7 +8,7 @@ import {
   getEmployeeDeclaration,
   updateEmployeeTaxDeclaration,
   deleteEmployeeTaxDeclaration,
-} from "../controllers/employeeTaxDeclarationController.js";
+} from "../Controllers/employeeTaxDeclarationController.js";
 
 const router = express.Router();
 

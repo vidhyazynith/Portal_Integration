@@ -8,7 +8,7 @@ import {
   updateFinancialYear,
   deleteFinancialYear,
   getActiveFinancialYear
-} from "../controllers/financialYearController.js";
+} from "../Controllers/financialYearController.js";
 
 const router = express.Router();
 

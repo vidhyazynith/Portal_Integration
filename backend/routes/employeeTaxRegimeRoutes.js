@@ -6,7 +6,7 @@ import {
   getEmployeeRegimes,
   updateEmployeeRegime,
   deleteEmployeeRegime,
-} from "../controllers/employeeTaxRegimeController.js";
+} from "../Controllers/employeeTaxRegimeController.js";
 
 const router = express.Router();
 
