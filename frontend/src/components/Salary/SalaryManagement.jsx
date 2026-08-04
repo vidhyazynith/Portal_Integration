@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { salaryService } from '../../services/salary';
+import { categoryService } from '../../services/categoryService';
+import { taxCalculationService } from '../../services/taxCalculationService';
+import { financialYearService } from '../../services/financialYearService';
 import './SalaryManagement.css';
  
 const SalaryManagement = () => {
@@ -22,6 +25,9 @@ const SalaryManagement = () => {
   const [showHikeForm, setShowHikeForm] = useState(false);
   const [showDisabledRecords, setShowDisabledRecords] = useState(false);
   const [hikeStartDate, setHikeStartDate] = useState('');
+  const [deductionCategories, setDeductionCategories] = useState([]);
+  const [monthlyTDS, setMonthlyTDS] = useState(0);
+  const [financialYears, setFinancialYears] = useState([]);
   const [previousMonthLeaves, setPreviousMonthLeaves] = useState(0);
  
   const sortSalariesByEmployeeId = (salaries) => {
@@ -84,6 +90,8 @@ const [showAllHikes, setShowAllHikes] = useState(false); // To toggle between la
     loadEmployees();
     loadActiveSalaries();
     loadDisabledSalaries();
+    loadDeductionCategories();
+    loadFinancialYears(); 
   }, []);
  
   useEffect(() => {
@@ -91,6 +99,44 @@ const [showAllHikes, setShowAllHikes] = useState(false); // To toggle between la
       checkPayslipStatus();
     }
   }, [activeSalaries]);
+
+  useEffect(() => {
+  const calculateMonthlyTDS = async () => {
+    if (!selectedEmployee || !formData.month || !formData.year || financialYears.length === 0) {
+      setMonthlyTDS(0);
+      return;
+    }
+
+    // Map month/year to Financial Year (India: April-March)
+    const monthIndex = months.indexOf(formData.month);
+    let fyStartYear = parseInt(formData.year);
+    if (monthIndex >= 0 && monthIndex < 3) { // Jan, Feb, Mar
+      fyStartYear = fyStartYear - 1;
+    }
+    const fyName = `FY ${fyStartYear}-${(fyStartYear + 1).toString().slice(-2)}`;
+    
+    const fy = financialYears.find(f => f.name === fyName);
+    if (!fy) {
+      setMonthlyTDS(0);
+      return;
+    }
+
+    try {
+      const data = await taxCalculationService.calculateTax(selectedEmployee, fy._id);
+      const annualTax = data.data?.annualTax || 0;
+      if (annualTax > 0) {
+        setMonthlyTDS(Math.round(annualTax / 12));
+      } else {
+        setMonthlyTDS(0);
+      }
+    } catch (error) {
+      // No tax declaration or regime not assigned → TDS = 0
+      setMonthlyTDS(0);
+    }
+  };
+
+  calculateMonthlyTDS();
+}, [selectedEmployee, formData.month, formData.year, financialYears]);
  
   // Helper function for proper rounding
   const roundAmount = (amount) => {
@@ -205,6 +251,25 @@ const [showAllHikes, setShowAllHikes] = useState(false); // To toggle between la
       setDisabledSalaries([]);
     }
   };
+  const loadDeductionCategories = async () => {
+  try {
+    const result = await categoryService.getCategoriesByType('Salary-Deduction');
+    if (result.success) {
+      setDeductionCategories(result.data);
+    }
+  } catch (error) {
+    console.error('Error loading deduction categories:', error);
+  }
+};
+
+const loadFinancialYears = async () => {
+  try {
+    const data = await financialYearService.getFinancialYears();
+    setFinancialYears(data.data || []);
+  } catch (error) {
+    console.error('Error loading FY:', error);
+  }
+};
  
   const checkPayslipStatus = async () => {
     const status = {};
@@ -796,7 +861,9 @@ const handleEditSalary = async (salary) => {
  
   // Fixed salary summary calculations with rounding
   const totalEarnings = roundAmount(formData.earnings.reduce((sum, earning) => sum + (parseFloat(earning.amount) || 0), 0));
-  const totalDeductions = roundAmount(formData.deductions.reduce((sum, deduction) => sum + (parseFloat(deduction.amount) || 0), 0));
+const totalDeductions = roundAmount(
+  formData.deductions.reduce((sum, deduction) => sum + (parseFloat(deduction.amount) || 0), 0) + monthlyTDS
+);
   const monthlyCtc = calculatedValues.basicPay > 0 ? calculatedValues.basicPay : roundAmount(formData.basicSalary);
   const grossEarnings = roundAmount(totalEarnings);
   const netPay = roundAmount(grossEarnings - totalDeductions);
@@ -1633,13 +1700,18 @@ const handleEditSalary = async (salary) => {
                         <div key={index} className="item-row">
                           <div className="weform-group">
                             <label className="form-label">Type</label>
-                            <input
-                              type="text"
-                              className="form-input"
+                            <select
+                              className="form-select"
                               value={deduction.type}
                               onChange={(e) => handleDeductionChange(index, 'type', e.target.value)}
-                              placeholder="Deduction type"
-                            />
+                            >
+                              <option value="">Select Deduction Type</option>
+                              {deductionCategories.map((cat) => (
+                                <option key={cat._id} value={cat.name}>
+                                  {cat.name}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                           <div className="weform-group">
                             <label className="form-label">Percentage (%)</label>
@@ -1678,6 +1750,27 @@ const handleEditSalary = async (salary) => {
                           )}
                         </div>
                       ))}
+                      {/* TDS Auto-Deduction */}
+                {monthlyTDS > 0 ? (
+                  <div className="item-row" style={{background: '#f0f9ff', border: '1px solid #bae6fd', marginTop: '12px'}}>
+                    <div className="weform-group">
+                      <label className="form-label">Deduction Type</label>
+                      <input type="text" className="form-input" value="TDS (Tax Deducted at Source)" disabled style={{fontWeight: 600, color: '#0369a1'}} />
+                    </div>
+                    <div className="weform-group">
+                      <label className="form-label">Percentage (%)</label>
+                      <input type="text" className="form-input" value="Auto" disabled />
+                    </div>
+                    <div className="weform-group">
+                      <label className="form-label">Amount (₹)</label>
+                      <input type="number" className="form-input" value={monthlyTDS} disabled style={{fontWeight: 700, color: '#0369a1'}} />
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{padding: '12px 16px', background: '#f9fafb', borderRadius: '8px', marginTop: '12px', color: '#6b7280', fontSize: '13px'}}>
+                    No TDS applicable (tax not calculated or zero liability)
+                  </div>
+                )}
                     </div>
                   </div>
  
@@ -1692,6 +1785,10 @@ const handleEditSalary = async (salary) => {
                       <div className="summary-table-row total">
                         <span className="summary-table-label">Gross Earnings:</span>
                         <span className="summary-table-value">Rs.{grossEarnings.toFixed(2)}</span>
+                      </div>
+                      <div className="summary-table-row">
+                        <span className="summary-table-label">TDS (Monthly Tax):</span>
+                        <span className="summary-table-value">Rs.{monthlyTDS.toFixed(2)}</span>
                       </div>
                       <div className="summary-table-row">
                         <span className="summary-table-label">Total Deductions:</span>

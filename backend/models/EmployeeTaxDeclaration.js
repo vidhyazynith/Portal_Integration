@@ -89,7 +89,7 @@ const employeeTaxDeclarationSchema = new mongoose.Schema(
             },
             exemptionLimit: {
                 type: Number,
-                default: 200000
+                default: 0
             }
         },
 
@@ -100,7 +100,7 @@ const employeeTaxDeclarationSchema = new mongoose.Schema(
             },
             exemptionLimit: {
                 type: Number,
-                default: 150000
+                default: 0
             }
         },
 
@@ -111,7 +111,7 @@ const employeeTaxDeclarationSchema = new mongoose.Schema(
             },
             exemptionLimit: {
                 type: Number,
-                default: 150000
+                default: 0
             }
         },
 
@@ -122,7 +122,7 @@ const employeeTaxDeclarationSchema = new mongoose.Schema(
             },
             exemptionLimit: {
                 type: Number,
-                default: 150000
+                default: 0
             }
         },
 
@@ -133,7 +133,7 @@ const employeeTaxDeclarationSchema = new mongoose.Schema(
             },
             exemptionLimit: {
                 type: Number,
-                default: 50000
+                default: 0
             }
         },
 
@@ -151,7 +151,7 @@ const employeeTaxDeclarationSchema = new mongoose.Schema(
             },
             exemptionLimit: {
                 type: Number,
-                default: 150000
+                default: 0
             }
         },
 
@@ -162,7 +162,7 @@ const employeeTaxDeclarationSchema = new mongoose.Schema(
             },
             exemptionLimit: {
                 type: Number,
-                default: 150000
+                default: 0
             }
         },
 
@@ -172,7 +172,35 @@ const employeeTaxDeclarationSchema = new mongoose.Schema(
                 default: 0
             }
         }
-    }
+    },
+        declarationStatus: {
+        type: String,
+        enum: [
+            "DRAFT",
+            "SUBMITTED",
+            "APPROVED",
+            "REJECTED"
+        ],
+            default: "DRAFT"
+        },
+
+        submittedAt: {
+            type: Date
+        },
+
+        reviewedAt: {
+            type: Date
+        },
+
+        reviewedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        },
+
+        rejectionReason: {
+            type: String,
+            default: ""
+        }
 },
 {
     timestamps: true

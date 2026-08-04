@@ -15,7 +15,8 @@ export const calculateEmployeeTax = async (
   const employeeRegime =
     await EmployeeTaxRegime.findOne({
       employeeId,
-      financialYearId
+      financialYearId,
+      declarationStatus: "APPROVED"
     });
 
   if (!employeeRegime) {

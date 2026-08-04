@@ -11,7 +11,7 @@ const categorySchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category type is required'],
     enum: {
-      values: [ 'transaction-income', 'transaction-expense'],
+      values: [ 'transaction-income', 'transaction-expense','Salary-Deduction'],
       message: 'Invalid category type'
     }
   },
@@ -69,19 +69,22 @@ categorySchema.statics.getCategoryStats = async function() {
     
     'transaction-income': stats.find(stat => stat._id === 'transaction-income')?.count || 0,
     'transaction-expense': stats.find(stat => stat._id === 'transaction-expense')?.count || 0,
+    'Salary-Deduction': stats.find(stat => stat._id === 'Salary-Deduction')?.count || 0
   };
 };
  
 // Static method to get transaction categories (both income and expense)
 categorySchema.statics.getTransactionCategories = async function() {
-  const [incomeCategories, expenseCategories] = await Promise.all([
+  const [incomeCategories, expenseCategories,salaryDeductionCategories] = await Promise.all([
     this.getCategoriesByType('transaction-income'),
-    this.getCategoriesByType('transaction-expense')
+    this.getCategoriesByType('transaction-expense'),
+    this.getCategoriesByType('Salary-Deduction')
   ]);
  
   return {
     income: incomeCategories,
-    expense: expenseCategories
+    expense: expenseCategories,
+    salary: salaryDeductionCategories
   };
 };
  

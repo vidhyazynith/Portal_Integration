@@ -94,5 +94,14 @@ export const categoryTypes = [
     color: '#e74c3c',
     placeholder: 'e.g., Office Supplies',
     suggestions: ['Office Rent', 'Software Licenses', 'Marketing', 'Travel', 'Equipment']
+  },
+  {
+    id: 'Salary-Deduction',
+    title: 'Salary Deduction Categories',
+    description: 'Manage categories for salary deductions',
+    icon: '🧾',
+    color: '#f39c12',
+    placeholder: 'e.g., Tax Deductions',
+    suggestions: ['Income Tax', 'Social Security', 'Health Insurance', 'Retirement Contributions', 'Union Dues']
   }
 ];

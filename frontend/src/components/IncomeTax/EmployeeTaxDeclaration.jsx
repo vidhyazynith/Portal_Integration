@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { employeeTaxDeclarationService } from '../../services/employeeTaxDeclarationService';
 import { financialYearService } from '../../services/financialYearService';
 import { deductionLimitService } from '../../services/deductionLimitService';
@@ -12,7 +12,6 @@ const AGE_CATEGORIES = [
   { value: 'ABOVE_80', label: 'Above 80 years' }
 ];
 
-// Map form section keys to deduction limit types from DeductionLimitManagement
 const DEDUCTION_TYPE_MAP = {
   interestPaidOnHousingLoan: 'INTEREST_PAID_ON_HOUSING_LOAN',
   section123: 'SECTION_123_PF_PPF_INSURANCE_PREMIUM',
@@ -37,13 +36,17 @@ const EmployeeTaxDeclaration = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [regimeWarning, setRegimeWarning] = useState('');
+  const [activeTab, setActiveTab] = useState('SUBMITTED'); // SUBMITTED | APPROVED | REJECTED
+  const [reviewModal, setReviewModal] = useState(false);
+  const [reviewItem, setReviewItem] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
-  // Clean initial state — NO hardcoded limits
   const [formData, setFormData] = useState({
     employeeId: '',
     financialYearId: '',
     ageCategory: 'LESS_THAN_60',
     deductionTypes: {
+      interestFromSavingsOrFD: 0,
       rentalIncomeReceived: 0,
       municipalTaxPaid: 0,
       housingLoanInterestLetOut: 0,
@@ -81,7 +84,7 @@ const EmployeeTaxDeclaration = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await employeeTaxDeclarationService.getEmployeeTaxDeclarations();
+      const data = await employeeTaxDeclarationService.getDeclarationsByStatus(activeTab);
       setDeclarations(data.data || []);
     } catch (error) {
       console.error('Error loading declarations:', error);
@@ -89,6 +92,9 @@ const EmployeeTaxDeclaration = () => {
       setLoading(false);
     }
   };
+    useEffect(() => {
+    loadData();
+  }, [activeTab]);
 
   const loadEmployees = async () => {
     try {
@@ -126,7 +132,6 @@ const EmployeeTaxDeclaration = () => {
     }
   };
 
-  // Get dynamic limit from DeductionLimitManagement for a given section & FY
   const getLimitForSection = (sectionKey, fyId) => {
     if (!fyId || !deductionLimits.length) return 0;
     const type = DEDUCTION_TYPE_MAP[sectionKey];
@@ -134,7 +139,7 @@ const EmployeeTaxDeclaration = () => {
       const limitFyId = l.financialYearId?._id || l.financialYearId;
       const matchesType = l.deductionType === type;
       const matchesFY = limitFyId === fyId;
-      const matchesRegime = l.regime === 'OLD';
+      const matchesRegime = l.regime === 'OLD' || l.regime === 'BOTH';
       return matchesType && matchesFY && matchesRegime;
     });
     return limit ? limit.maximumAmount : 0;
@@ -146,6 +151,45 @@ const EmployeeTaxDeclaration = () => {
         (r.financialYearId?._id || r.financialYearId) === fyId
     );
   };
+
+  // Live HRA Calculation
+  const hraCalc = formData.exemptionDetails.hraCalculation;
+  const hraComputed = useMemo(() => {
+    const basic = parseFloat(hraCalc.basicPayReceivedPA) || 0;
+    const da = parseFloat(hraCalc.dearnessAllowanceReceivedPA) || 0;
+    const hraReceived = parseFloat(hraCalc.houseRentAllowanceReceivedPA) || 0;
+    const rentPaid = parseFloat(hraCalc.totalRentPaid) || 0;
+    const metro = hraCalc.metroCity;
+
+    const salary = basic + da;
+    const a = Math.max(0, rentPaid - (salary * 0.10));
+    const b = basic * (metro ? 0.50 : 0.40);
+    const c = hraReceived;
+    const exempted = Math.max(0, Math.min(a, b, c));
+    const taxable = Math.max(0, hraReceived - exempted);
+
+    return {
+      a: Math.round(a),
+      b: Math.round(b),
+      c: Math.round(c),
+      exempted: Math.round(exempted),
+      taxable: Math.round(taxable),
+      metroPercent: metro ? '50%' : '40%'
+    };
+  }, [hraCalc.basicPayReceivedPA, hraCalc.dearnessAllowanceReceivedPA, hraCalc.houseRentAllowanceReceivedPA, hraCalc.totalRentPaid, hraCalc.metroCity]);
+
+  // Auto-insert exempted HRA into hraAndOtherExemptions whenever HRA inputs change
+  useEffect(() => {
+    if (showForm) {
+      setFormData(prev => ({
+        ...prev,
+        exemptionDetails: {
+          ...prev.exemptionDetails,
+          hraAndOtherExemptions: hraComputed.exempted
+        }
+      }));
+    }
+  }, [hraComputed.exempted, showForm]);
 
   const handleBasicChange = (e) => {
     const { name, value } = e.target;
@@ -171,7 +215,6 @@ const EmployeeTaxDeclaration = () => {
   const handleExemptionChange = (section, value) => {
     const limit = getLimitForSection(section, formData.financialYearId);
     let numVal = parseFloat(value) || 0;
-    // Optional: auto-cap at limit if limit exists
     if (limit > 0 && numVal > limit) numVal = limit;
     setFormData(prev => ({
       ...prev,
@@ -195,7 +238,6 @@ const EmployeeTaxDeclaration = () => {
   const handleSimpleExemptionChange = (section, value) => {
     const limit = getLimitForSection(section, formData.financialYearId);
     let numVal = parseFloat(value) || 0;
-    // Optional: auto-cap at limit if limit exists
     if (limit > 0 && numVal > limit) numVal = limit;
     setFormData(prev => ({
       ...prev,
@@ -203,12 +245,47 @@ const EmployeeTaxDeclaration = () => {
     }));
   };
 
+  const handleApprove = async (id) => {
+  if (!window.confirm('Approve this declaration?')) return;
+  try {
+    await employeeTaxDeclarationService.approveDeclaration(id);
+    alert('Declaration approved!');
+    loadData();
+  } catch (error) {
+    alert(error.response?.data?.message || 'Error approving');
+  }
+};
+
+const handleReject = async () => {
+  if (!rejectionReason.trim()) {
+    alert('Please enter a rejection reason');
+    return;
+  }
+  try {
+    await employeeTaxDeclarationService.rejectDeclaration(reviewItem._id, rejectionReason);
+    alert('Declaration rejected!');
+    setReviewModal(false);
+    setRejectionReason('');
+    setReviewItem(null);
+    loadData();
+  } catch (error) {
+    alert(error.response?.data?.message || 'Error rejecting');
+  }
+};
+
+const openReview = (item) => {
+  setReviewItem(item);
+  setRejectionReason('');
+  setReviewModal(true);
+};
+
   const resetForm = () => {
     setFormData({
       employeeId: '',
       financialYearId: financialYears[0]?._id || '',
       ageCategory: 'LESS_THAN_60',
       deductionTypes: {
+        interestFromSavingsOrFD: 0,
         rentalIncomeReceived: 0,
         municipalTaxPaid: 0,
         housingLoanInterestLetOut: 0,
@@ -240,8 +317,6 @@ const EmployeeTaxDeclaration = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Block NEW regime employees
     const regimeInfo = getEmployeeRegime(formData.employeeId, formData.financialYearId);
     if (regimeInfo && regimeInfo.regime === 'NEW') {
       alert('Cannot create tax declaration for NEW regime employees. NEW regime does not support exemptions/deductions.');
@@ -328,9 +403,9 @@ const EmployeeTaxDeclaration = () => {
     return getEmployeeName(d.employeeId).toLowerCase().includes(term) || getFYName(d.financialYearId).toLowerCase().includes(term);
   });
 
-  const renderNumberInput = (label, value, onChange, placeholder = '0', helpText = null) => (
+  const renderNumberInput = (label, value, onChange, placeholder = '0', helpText = null, required = false) => (
     <div className="form-group">
-      <label className="form-label">{label}</label>
+      <label className="form-label">{label}{required && <span style={{color: '#ef4444'}}> *</span>}</label>
       <input className="form-input" type="number" value={value} onChange={onChange} placeholder={placeholder} min="0" />
       {helpText && <small className="form-help">{helpText}</small>}
     </div>
@@ -351,73 +426,156 @@ const EmployeeTaxDeclaration = () => {
         <div className="search-container">
           <input type="text" placeholder="Search by employee or FY..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
-        <div className="controls-btns">
+        <div className="controls-buttons">
           <button className="add-btn" onClick={() => { resetForm(); setShowForm(true); }}>
             <span>+</span> Add Declaration
           </button>
         </div>
       </div>
 
-      <div className="tax-table-container">
-        {loading ? (
-          <div className="table-loading">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="table-row loading-shimmer" style={{height: '60px'}}></div>
-            ))}
+<div style={{display: 'flex', gap: '12px', marginBottom: '20px'}}>
+  {['SUBMITTED', 'APPROVED', 'REJECTED'].map(tab => (
+    <button
+      key={tab}
+      onClick={() => setActiveTab(tab)}
+      style={{
+        padding: '10px 24px',
+        borderRadius: '10px',
+        border: 'none',
+        fontWeight: 700,
+        cursor: 'pointer',
+        background: activeTab === tab ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f3f4f6',
+        color: activeTab === tab ? 'white' : '#374151',
+        transition: 'all 0.3s'
+      }}
+    >
+      {tab} ({declarations.length})
+    </button>
+  ))}
+</div>
+
+{/* Table */}
+<table className="tax-table">
+  <thead>
+    <tr>
+      <th>Employee</th>
+      <th>Financial Year</th>
+      <th>Age Category</th>
+      <th>Submitted At</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {filteredData.map(d => (
+      <tr key={d._id}>
+        <td><strong>{getEmployeeName(d.employeeId)}</strong></td>
+        <td>{getFYName(d.financialYearId)}</td>
+        <td>{getAgeLabel(d.ageCategory)}</td>
+        <td>{d.submittedAt ? new Date(d.submittedAt).toLocaleDateString() : '-'}</td>
+        <td>
+          <span className={`status-badge ${
+            d.declarationStatus === 'APPROVED' ? 'status-active' : 
+            d.declarationStatus === 'REJECTED' ? 'status-inactive' : 
+            d.declarationStatus === 'SUBMITTED' ? 'status-old' : 'status-inactive'
+          }`}>
+            {d.declarationStatus}
+          </span>
+        </td>
+        <td>
+          <div className="table-actions">
+            <button className="action-btns primary" onClick={() => openReview(d)} title="Review">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+            {d.declarationStatus === 'SUBMITTED' && (
+              <>
+                <button className="action-btns success" onClick={() => handleApprove(d._id)} title="Approve">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </button>
+                <button className="action-btns danger" onClick={() => openReview(d)} title="Reject">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
-        ) : filteredData.length === 0 ? (
-          <div className="no-records">
-            <h3>No declarations found</h3>
-            <p>{searchTerm ? 'Try adjusting your search' : 'No tax declarations available'}</p>
-          </div>
-        ) : (
-          <table className="tax-table">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Financial Year</th>
-                <th>Age Category</th>
-                <th>Total Exemptions</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map(d => {
-                const totalExemptions = Object.values(d.exemptionDetails || {}).reduce((sum, val) => {
-                  if (typeof val === 'number') return sum + val;
-                  if (val && typeof val === 'object' && val.amount) return sum + val.amount;
-                  return sum;
-                }, 0);
-                return (
-                  <tr key={d._id}>
-                    <td><strong>{getEmployeeName(d.employeeId)}</strong></td>
-                    <td>{getFYName(d.financialYearId)}</td>
-                    <td>{getAgeLabel(d.ageCategory)}</td>
-                    <td>₹{totalExemptions.toLocaleString()}</td>
-                    <td>
-                      <div className="table-actions">
-                        <button className="action-btns primary" onClick={() => handleEdit(d)} title="Edit">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                          </svg>
-                        </button>
-                        <button className="action-btns danger" onClick={() => handleDelete(d._id)} title="Delete">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+{/* Review Modal */}
+{reviewModal && reviewItem && (
+  <div className="modals-overlay" onClick={() => setReviewModal(false)}>
+    <div className="modal-content xlarge-modals" onClick={e => e.stopPropagation()}>
+      <div className="modals-header">
+        <h3>Review Declaration — {getEmployeeName(reviewItem.employeeId)}</h3>
+        <button className="close-btn" onClick={() => setReviewModal(false)}>×</button>
       </div>
+      <div className="modals-body">
+        <div className="form-sections">
+          <div className="form-section">
+            <h4 className="section-title">Declaration Details</h4>
+            <div className="detail-grid">
+              <div className="detail-item"><span className="detail-label">Age:</span><span className="detail-value">{getAgeLabel(reviewItem.ageCategory)}</span></div>
+              <div className="detail-item"><span className="detail-label">Other Income:</span><span className="detail-value">₹{reviewItem.deductionTypes?.otherIncome || 0}</span></div>
+              <div className="detail-item"><span className="detail-label">HRA Exemption:</span><span className="detail-value">₹{reviewItem.exemptionDetails?.hraAndOtherExemptions || 0}</span></div>
+              <div className="detail-item"><span className="detail-label">Sec 123:</span><span className="detail-value">₹{reviewItem.exemptionDetails?.section123?.amount || 0}</span></div>
+              <div className="detail-item"><span className="detail-label">Sec 124:</span><span className="detail-value">₹{reviewItem.exemptionDetails?.section124?.amount || 0}</span></div>
+              <div className="detail-item"><span className="detail-label">Sec 126:</span><span className="detail-value">₹{reviewItem.exemptionDetails?.section126?.amount || 0}</span></div>
+            </div>
+          </div>
+
+          {reviewItem.declarationStatus === 'SUBMITTED' && (
+            <div className="form-section">
+              <h4 className="section-title">Admin Action</h4>
+              <div className="form-group">
+                <label className="form-label">Rejection Reason (required only for reject)</label>
+                <textarea 
+                  className="form-textarea" 
+                  value={rejectionReason} 
+                  onChange={e => setRejectionReason(e.target.value)}
+                  placeholder="Enter reason if rejecting..."
+                  rows={3}
+                />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="action-btns success" onClick={() => handleApprove(reviewItem._id)}>
+                  ✅ Approve Declaration
+                </button>
+                <button type="button" className="action-btns danger" onClick={handleReject}>
+                  ❌ Reject Declaration
+                </button>
+              </div>
+            </div>
+          )}
+
+          {reviewItem.declarationStatus === 'REJECTED' && (
+            <div style={{padding: '16px', background: '#fef2f2', borderRadius: '12px', color: '#991b1b'}}>
+              <strong>Rejection Reason:</strong>
+              <p style={{margin: '8px 0 0 0'}}>{reviewItem.rejectionReason}</p>
+            </div>
+          )}
+
+          {reviewItem.declarationStatus === 'APPROVED' && (
+            <div style={{padding: '16px', background: '#ecfdf5', borderRadius: '12px', color: '#065f46'}}>
+              <strong>Approved by Admin</strong>
+              <p style={{margin: '8px 0 0 0'}}>Reviewed on: {new Date(reviewItem.reviewedAt).toLocaleString()}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
       {showForm && (
         <div className="modals-overlay" onClick={() => setShowForm(false)}>
@@ -470,6 +628,7 @@ const EmployeeTaxDeclaration = () => {
                 <div className="form-section">
                   <h4 className="section-title">Other Income & Deductions</h4>
                   <div className="form-grid">
+                    {renderNumberInput('Interest from Savings/FD (₹)', formData.deductionTypes.interestFromSavingsOrFD, e => handleDeductionTypeChange('interestFromSavingsOrFD', e.target.value))}
                     {renderNumberInput('Rental Income Received (₹)', formData.deductionTypes.rentalIncomeReceived, e => handleDeductionTypeChange('rentalIncomeReceived', e.target.value))}
                     {renderNumberInput('Municipal Tax Paid (₹)', formData.deductionTypes.municipalTaxPaid, e => handleDeductionTypeChange('municipalTaxPaid', e.target.value))}
                     {renderNumberInput('Housing Loan Interest (Let Out) (₹)', formData.deductionTypes.housingLoanInterestLetOut, e => handleDeductionTypeChange('housingLoanInterestLetOut', e.target.value))}
@@ -477,30 +636,92 @@ const EmployeeTaxDeclaration = () => {
                   </div>
                 </div>
 
-                {/* HRA Exemption */}
+                {/* HRA Calculator */}
                 <div className="form-section">
-                  <h4 className="section-title">HRA & Exemptions</h4>
+                  <h4 className="section-title">HRA Calculator</h4>
                   <div className="form-grid">
+                    {renderNumberInput('Basic Pay (received p.a)', formData.exemptionDetails.hraCalculation.basicPayReceivedPA, e => handleHraCalcChange('basicPayReceivedPA', e.target.value), '0', null, true)}
+                    {renderNumberInput('Dearness Allowance (received p.a)', formData.exemptionDetails.hraCalculation.dearnessAllowanceReceivedPA, e => handleHraCalcChange('dearnessAllowanceReceivedPA', e.target.value))}
+                    {renderNumberInput('House Rent Allowance (received p.a)', formData.exemptionDetails.hraCalculation.houseRentAllowanceReceivedPA, e => handleHraCalcChange('houseRentAllowanceReceivedPA', e.target.value), '0', null, true)}
+                    {renderNumberInput('Total Rent Paid', formData.exemptionDetails.hraCalculation.totalRentPaid, e => handleHraCalcChange('totalRentPaid', e.target.value), '0', null, true)}
+                  </div>
+
+                  {/* Metro City Toggle */}
+                  <div style={{marginTop: '20px'}}>
+                    <label style={{fontSize: '14px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '8px'}}>
+                      Do you live in a metro city? (Mumbai, Kolkata, Delhi, Chennai, Hyderabad, Pune, Ahmedabad, or Bengaluru)
+                    </label>
+                    <div style={{display: 'inline-flex', borderRadius: '10px', overflow: 'hidden', border: '1px solid #d1d5db'}}>
+                      <button
+                        type="button"
+                        onClick={() => handleHraCalcChange('metroCity', true)}
+                        style={{
+                          padding: '10px 28px',
+                          border: 'none',
+                          background: hraCalc.metroCity ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f3f4f6',
+                          color: hraCalc.metroCity ? 'white' : '#374151',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleHraCalcChange('metroCity', false)}
+                        style={{
+                          padding: '10px 28px',
+                          border: 'none',
+                          background: !hraCalc.metroCity ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f3f4f6',
+                          color: !hraCalc.metroCity ? 'white' : '#374151',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          transition: 'all 0.2s',
+                          borderLeft: '1px solid #d1d5db'
+                        }}
+                      >
+                        No
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* HRA Calculation Breakdown */}
+                  <div style={{background: '#f1f5f9', padding: '24px', borderRadius: '12px', marginTop: '24px', border: '1px solid #e2e8f0'}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #cbd5e1'}}>
+                      <span style={{color: '#475569', fontSize: '14px'}}>(A) Rent paid in excess of 10% of salary</span>
+                      <span style={{fontWeight: 600, color: '#1e293b', fontFamily: "'Courier New', monospace"}}>₹ {hraComputed.a.toLocaleString()}</span>
+                    </div>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #cbd5e1'}}>
+                      <span style={{color: '#475569', fontSize: '14px'}}>(B) {hraComputed.metroPercent} of basic pay</span>
+                      <span style={{fontWeight: 600, color: '#1e293b', fontFamily: "'Courier New', monospace"}}>₹ {hraComputed.b.toLocaleString()}</span>
+                    </div>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #cbd5e1'}}>
+                      <span style={{color: '#475569', fontSize: '14px'}}>(C) HRA provided by the employer</span>
+                      <span style={{fontWeight: 600, color: '#1e293b', fontFamily: "'Courier New', monospace"}}>₹ {hraComputed.c.toLocaleString()}</span>
+                    </div>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0 12px', marginTop: '4px', borderTop: '2px solid #334155'}}>
+                      <span style={{fontWeight: 700, color: '#1e293b', fontSize: '15px'}}>Amount of HRA exempted</span>
+                      <span style={{fontWeight: 700, color: '#059669', fontSize: '18px', fontFamily: "'Courier New', monospace"}}>₹ {hraComputed.exempted.toLocaleString()}</span>
+                    </div>
+                    <div style={{fontSize: '12px', color: '#64748b', marginBottom: '8px'}}>The least of A, B, and C is exempted from tax</div>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0 0', borderTop: '1px dashed #94a3b8'}}>
+                      <span style={{fontWeight: 600, color: '#475569'}}>HRA chargeable to tax</span>
+                      <span style={{fontWeight: 600, color: '#dc2626', fontFamily: "'Courier New', monospace"}}>₹ {hraComputed.taxable.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Auto-populated HRA Exemption Field */}
+                  <div style={{marginTop: '20px'}}>
                     {renderNumberInput(
-                      'HRA & Other Exemptions (₹)',
+                      'HRA & Other Exemptions (₹) — Auto calculated from above',
                       formData.exemptionDetails.hraAndOtherExemptions,
                       e => handleSimpleExemptionChange('hraAndOtherExemptions', e.target.value),
                       '0',
                       `Limit: ₹${getLimitForSection('hraAndOtherExemptions', formData.financialYearId).toLocaleString()}`
                     )}
-                  </div>
-                  <div style={{marginTop: '16px'}}>
-                    <h5 style={{marginBottom: '12px', color: '#374151', fontSize: '14px'}}>HRA Calculation Details</h5>
-                    <div className="form-grid">
-                      {renderNumberInput('Basic Pay Received (PA) (₹)', formData.exemptionDetails.hraCalculation.basicPayReceivedPA, e => handleHraCalcChange('basicPayReceivedPA', e.target.value))}
-                      {renderNumberInput('Dearness Allowance (PA) (₹)', formData.exemptionDetails.hraCalculation.dearnessAllowanceReceivedPA, e => handleHraCalcChange('dearnessAllowanceReceivedPA', e.target.value))}
-                      {renderNumberInput('HRA Received (PA) (₹)', formData.exemptionDetails.hraCalculation.houseRentAllowanceReceivedPA, e => handleHraCalcChange('houseRentAllowanceReceivedPA', e.target.value))}
-                      {renderNumberInput('Total Rent Paid (₹)', formData.exemptionDetails.hraCalculation.totalRentPaid, e => handleHraCalcChange('totalRentPaid', e.target.value))}
-                      <div className="form-group" style={{display: 'flex', alignItems: 'center', gap: '12px', marginTop: '24px'}}>
-                        <input type="checkbox" id="metroCity" checked={formData.exemptionDetails.hraCalculation.metroCity} onChange={e => handleHraCalcChange('metroCity', e.target.checked)} style={{width: '20px', height: '20px', cursor: 'pointer'}} />
-                        <label htmlFor="metroCity" className="form-label" style={{margin: 0, cursor: 'pointer'}}>Metro City (50% calc)</label>
-                      </div>
-                    </div>
                   </div>
                 </div>
 

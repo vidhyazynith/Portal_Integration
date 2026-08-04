@@ -7,10 +7,11 @@ import Category from '../models/Category.js';
 export const getAllCategories = async (req, res) => {
   try {
     // Get categories for each type in parallel
-    const [transactionIncome, transactionExpense, stats] = await Promise.all([
+    const [transactionIncome, transactionExpense, salaryDeduction, stats] = await Promise.all([
      
       Category.getCategoriesByType('transaction-income'),
       Category.getCategoriesByType('transaction-expense'),
+      Category.getCategoriesByType('Salary-Deduction'),
       Category.getCategoryStats()
     ]);
 
@@ -19,7 +20,8 @@ export const getAllCategories = async (req, res) => {
       data: {
         
         'transaction-income': transactionIncome,
-        'transaction-expense': transactionExpense
+        'transaction-expense': transactionExpense,
+        'Salary-Deduction': salaryDeduction
       },
       stats
     });
@@ -41,7 +43,7 @@ export const getCategoriesByType = async (req, res) => {
     const { type } = req.params;
     
     // Validate category type
-    const validTypes = ['transaction-income', 'transaction-expense'];
+    const validTypes = ['transaction-income', 'transaction-expense', 'Salary-Deduction'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({
         success: false,
@@ -105,7 +107,7 @@ export const createCategory = async (req, res) => {
     }
 
     // Validate category type
-    const validTypes = [ 'transaction-income', 'transaction-expense'];
+    const validTypes = [ 'transaction-income', 'transaction-expense', 'Salary-Deduction' ];
     if (!validTypes.includes(type)) {
       return res.status(400).json({
         success: false,

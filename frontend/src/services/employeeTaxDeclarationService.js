@@ -24,5 +24,25 @@ export const employeeTaxDeclarationService = {
   deleteEmployeeTaxDeclaration: async (id) => {
     const response = await api.delete(`/employee-tax-declarations/${id}`);
     return response.data;
+  },
+  submitDeclaration: async (id) => {
+    const response = await api.post(`/employee-tax-declarations/${id}/submit`);
+    return response.data;
+  },
+  getDeclarationsByStatus: async (status) => {
+    const response = await api.get(`/employee-tax-declarations/admin/by-status?status=${status}`);
+    return response.data;
+  },
+  approveDeclaration: async (id) => {
+    const response = await api.put(`/employee-tax-declarations/${id}/approve`);
+    return response.data;
+  },
+  rejectDeclaration: async (id, reason) => {
+    const response = await api.put(`/employee-tax-declarations/${id}/reject`, { reason });
+    return response.data;
+  },
+  getMyDeclaration: async (employeeId, financialYearId) => {
+    const response = await api.get(`/employee-tax-declarations/my/${employeeId}/financial-year/${financialYearId}`);
+    return response.data;
   }
 };
