@@ -372,35 +372,35 @@ export const updateCustomerStatus = async (req, res) => {
   }
 };
  
-// Add these location API endpoints to your CustomerController.js
+
 export const getCountries = async (req, res) => {
   try {
-    console.log('🌍 Fetching countries list...');
- 
-    // Use REST Countries API
-    const response = await axios.get('https://restcountries.com/v3.1/all?fields=name,cca2,cca3');
-    console.log('✅ Countries API response received');
-   
-    const countries = response.data.map(country => ({
-      code: country.cca2,
-      name: country.name.common
-    })).sort((a, b) => a.name.localeCompare(b.name));
- 
-    console.log(`✅ Found ${countries.length} countries`);
-   
-    return res.json({
+    const response = await axios.get(
+      "https://api.countrystatecity.in/v1/countries",
+      {
+        headers: {
+          "X-CSCAPI-KEY": process.env.CSC_API_KEY,
+        },
+      }
+    );
+
+    const countries = response.data
+      .map((country) => ({
+        code: country.iso2,
+        name: country.name,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return res.status(200).json({
       success: true,
-      countries
+      countries,
     });
- 
   } catch (error) {
-    console.error('❌ Error fetching countries:', error.message);
-   
-    // Return a proper error response
+    console.error(error.response?.data || error.message);
+
     return res.status(500).json({
       success: false,
-      error: 'Failed to fetch countries list',
-      details: error.message
+      error: error.response?.data || error.message,
     });
   }
 };
