@@ -17,24 +17,26 @@ import {
 
 const router = express.Router();
 
-router.post("/", createEmployeeTaxDeclaration);
+// Apply auth to ALL routes in this file
+router.use(authenticateToken);
 
-router.get("/", getEmployeeTaxDeclarations);
-
-router.get("/:id", getEmployeeTaxDeclarationById);
-
+// Specific routes FIRST (before /:id)
+router.get("/admin/by-status", getDeclarationsByStatus);
+router.get("/my/:employeeId/financial-year/:financialYearId", getMyDeclaration);
 router.get("/employee/:employeeId/financial-year/:financialYearId", getEmployeeDeclaration);
 
+// General routes
+router.get("/", getEmployeeTaxDeclarations);
+router.post("/", createEmployeeTaxDeclaration);
+
+// Single ID routes
+router.get("/:id", getEmployeeTaxDeclarationById);
 router.put("/:id", updateEmployeeTaxDeclaration);
-
 router.delete("/:id", deleteEmployeeTaxDeclaration);
-// Employee routes
-router.post('/:id/submit', submitDeclaration);
-router.get('/my/:employeeId/financial-year/:financialYearId', getMyDeclaration);
+router.post("/:id/submit", submitDeclaration);
 
-// Admin routes
-router.get('/admin/by-status', getDeclarationsByStatus);
-router.put('/:id/approve', approveDeclaration);
-router.put('/:id/reject', rejectDeclaration);
+// Admin approval routes
+router.put("/:id/approve", approveDeclaration);
+router.put("/:id/reject", rejectDeclaration);
 
 export default router;

@@ -1,5 +1,5 @@
 import EmployeeTaxDeclaration from "../models/EmployeeTaxDeclaration.js";
-
+import EmployeeTaxRegime from "../models/EmployeeTaxRegime.js";
 // Create Declaration
 export const createEmployeeTaxDeclaration = async (req, res) => {
   try {
@@ -148,29 +148,47 @@ export const deleteEmployeeTaxDeclaration = async (req, res) => {
 };
 
 export const submitDeclaration = async (req, res) => {
+    console.log("===== submitDeclaration called =====");
+  console.log(req.params);
   try {
+
     const { id } = req.params;
-    const declaration = await EmployeeTaxDeclaration.findOne({
-      _id: id,
-      employeeId: req.user.employeeId || req.body.employeeId
-    });
+
+const declaration = await EmployeeTaxDeclaration.findById(id);
 
     if (!declaration) {
-      return res.status(404).json({ message: 'Declaration not found' });
+      return res.status(404).json({
+        message: "Declaration not found"
+      });
     }
 
-    if (declaration.declarationStatus !== 'DRAFT' && declaration.declarationStatus !== 'REJECTED') {
-      return res.status(400).json({ message: 'Only DRAFT or REJECTED declarations can be submitted' });
+    if (
+      declaration.declarationStatus !== "DRAFT" &&
+      declaration.declarationStatus !== "REJECTED"
+    ) {
+      return res.status(400).json({
+        message:
+          "Only DRAFT or REJECTED declarations can be submitted"
+      });
     }
 
-    declaration.declarationStatus = 'SUBMITTED';
+    declaration.declarationStatus = "SUBMITTED";
     declaration.submittedAt = new Date();
-    declaration.rejectionReason = ''; // clear previous reason
+    declaration.rejectionReason = "";
+
     await declaration.save();
 
-    res.json({ success: true, message: 'Declaration submitted for admin review', data: declaration });
+    res.json({
+      success: true,
+      message:
+        "Declaration submitted for admin review",
+      data: declaration
+    });
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message
+    });
   }
 };
 
@@ -197,19 +215,19 @@ export const approveDeclaration = async (req, res) => {
     const declaration = await EmployeeTaxDeclaration.findById(id);
 
     if (!declaration) {
-      return res.status(404).json({ message: 'Declaration not found' });
+      return res.status(404).json({ message: "Declaration not found" });
     }
 
-    if (declaration.declarationStatus !== 'SUBMITTED') {
-      return res.status(400).json({ message: 'Only SUBMITTED declarations can be approved' });
+    if (declaration.declarationStatus !== "SUBMITTED") {
+      return res.status(400).json({ message: "Only SUBMITTED declarations can be approved" });
     }
 
-    declaration.declarationStatus = 'APPROVED';
+    declaration.declarationStatus = "APPROVED";
     declaration.reviewedAt = new Date();
-    declaration.reviewedBy = req.user._id;
+    declaration.reviewedBy = req.user?._id || null; // Safe fallback
     await declaration.save();
 
-    res.json({ success: true, message: 'Declaration approved successfully', data: declaration });
+    res.json({ success: true, message: "Declaration approved successfully", data: declaration });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -220,24 +238,24 @@ export const rejectDeclaration = async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    
+
     const declaration = await EmployeeTaxDeclaration.findById(id);
 
     if (!declaration) {
-      return res.status(404).json({ message: 'Declaration not found' });
+      return res.status(404).json({ message: "Declaration not found" });
     }
 
-    if (declaration.declarationStatus !== 'SUBMITTED') {
-      return res.status(400).json({ message: 'Only SUBMITTED declarations can be rejected' });
+    if (declaration.declarationStatus !== "SUBMITTED") {
+      return res.status(400).json({ message: "Only SUBMITTED declarations can be rejected" });
     }
 
-    declaration.declarationStatus = 'REJECTED';
+    declaration.declarationStatus = "REJECTED";
     declaration.reviewedAt = new Date();
-    declaration.reviewedBy = req.user._id;
-    declaration.rejectionReason = reason || 'No reason provided';
+    declaration.reviewedBy = req.user?._id || null; // Safe fallback
+    declaration.rejectionReason = reason || "No reason provided";
     await declaration.save();
 
-    res.json({ success: true, message: 'Declaration rejected', data: declaration });
+    res.json({ success: true, message: "Declaration rejected", data: declaration });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

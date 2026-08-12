@@ -191,7 +191,6 @@ const filteredData = slabs.filter(s => {
             <thead>
               <tr>
                 <th>Regime</th>
-                <th>Order</th>
                 <th>From Amount (₹)</th>
                 <th>To Amount (₹)</th>
                 <th>Tax Rate</th>
@@ -202,7 +201,7 @@ const filteredData = slabs.filter(s => {
               {filteredData.map(s => (
                 <tr key={s._id}>
                   <td>{getRegimeLabel(s.taxRegimeId)}</td>
-                  <td>{s.order}</td>
+                  {/* <td>{s.order}</td> */}
                   <td>₹{s.fromAmount?.toLocaleString()}</td>
                   <td>{s.toAmount ? `₹${s.toAmount.toLocaleString()}` : 'Above'}</td>
                   <td><strong>{s.percentage}%</strong></td>
@@ -241,7 +240,7 @@ const filteredData = slabs.filter(s => {
               <form onSubmit={handleSubmit} className="form-sections">
                 <div className="form-section">
                   <div className="form-grid">
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">Tax Regime *</label>
                       <select className="form-select" name="taxRegimeId" value={formData.taxRegimeId} onChange={handleInputChange} required>
                         <option value="">Select Regime</option>
@@ -252,16 +251,16 @@ const filteredData = slabs.filter(s => {
                         ))}
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">From Amount (₹) *</label>
                       <input className="form-input" type="number" name="fromAmount" value={formData.fromAmount} onChange={handleInputChange} min="0" required />
                     </div>
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">To Amount (₹)</label>
                       <input className="form-input" type="number" name="toAmount" value={formData.toAmount} onChange={handleInputChange} min="0" />
                       <small className="form-help">Leave empty for "Above" (no upper limit)</small>
                     </div>
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">Percentage (%) *</label>
                       <input className="form-input" type="number" name="percentage" value={formData.percentage} onChange={handleInputChange} min="0" max="100" step="0.01" required />
                     </div>

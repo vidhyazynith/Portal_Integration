@@ -131,33 +131,7 @@ const EmployeeTaxRegime = () => {
   return (
     <div className="income-tax-management">
       <div className="tax-header">
-        <div className="header-stats">
-          <div className="stat-card">
-            <div className="stat-value">{regimes.length}</div>
-            <div className="stat-label">Total Assignments</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">{regimes.filter(r => r.regime === 'OLD').length}</div>
-            <div className="stat-label">Old Regime</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">{regimes.filter(r => r.regime === 'NEW').length}</div>
-            <div className="stat-label">New Regime</div>
-          </div>
-        </div>
       </div>
-
-      <div className="controls-bar">
-        <div className="search-container">
-          <input type="text" placeholder="Search by employee or FY..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-        </div>
-        <div className="controls-btns">
-          <button className="add-btn" onClick={() => { resetForm(); setShowForm(true); }}>
-            <span>+</span> Assign Regime
-          </button>
-        </div>
-      </div>
-
       <div className="tax-table-container">
         {loading ? (
           <div className="table-loading">

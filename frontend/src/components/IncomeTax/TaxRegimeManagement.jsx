@@ -128,27 +128,6 @@ const TaxRegimeManagement = () => {
 
   return (
     <div className="income-tax-management">
-      {/* <div className="tax-header">
-        <div className="header-stats">
-          <div className="stat-card">
-            <div className="stat-value">{regimes.length}</div>
-            <div className="stat-label">Total Regimes</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">{regimes.filter(r => r.regime === 'OLD').length}</div>
-            <div className="stat-label">Old Regimes</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">{regimes.filter(r => r.regime === 'NEW').length}</div>
-            <div className="stat-label">New Regimes</div>
-          </div>
-        </div>
-      </div> */}
-
-      {/* <div className="controls-bar"> */}
-        {/* <div className="search-container">
-          <input type="text" placeholder="Search by regime or FY..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-        </div> */}
         <div className="controls-btns">
           <button className="add-btn" onClick={() => { resetForm(); setShowForm(true); }}>
             <span>+</span> Add Tax Regime
@@ -231,7 +210,7 @@ const TaxRegimeManagement = () => {
               <form onSubmit={handleSubmit} className="form-sections">
                 <div className="form-section">
                   <div className="form-grid">
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">Financial Year *</label>
                       <select className="form-select" name="financialYearId" value={formData.financialYearId} onChange={handleInputChange} required>
                         <option value="">Select Financial Year</option>
@@ -240,27 +219,27 @@ const TaxRegimeManagement = () => {
                         ))}
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">Regime *</label>
                       <select className="form-select" name="regime" value={formData.regime} onChange={handleInputChange} required>
                         <option value="OLD">OLD</option>
                         <option value="NEW">NEW</option>
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">Standard Deduction (₹)</label>
                       <input className="form-input" type="number" name="standardDeduction" value={formData.standardDeduction} onChange={handleInputChange} min="0" />
                     </div>
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">Rebate Amount (₹)</label>
                       <input className="form-input" type="number" name="rebateAmount" value={formData.rebateAmount} onChange={handleInputChange} min="0" />
                     </div>
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">Rebate Limit (₹)</label>
                       <input className="form-input" type="number" name="rebateLimit" value={formData.rebateLimit} onChange={handleInputChange} min="0" />
                       <small className="form-help">Taxable income must be ≤ this limit to get rebate</small>
                     </div>
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">Cess Percentage (%)</label>
                       <input className="form-input" type="number" name="cessPercentage" value={formData.cessPercentage} onChange={handleInputChange} min="0" max="100" step="0.01" />
                     </div>

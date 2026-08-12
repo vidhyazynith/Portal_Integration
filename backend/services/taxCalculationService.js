@@ -16,7 +16,6 @@ export const calculateEmployeeTax = async (
     await EmployeeTaxRegime.findOne({
       employeeId,
       financialYearId,
-      declarationStatus: "APPROVED"
     });
 
   if (!employeeRegime) {
@@ -169,6 +168,20 @@ const housePropertyIncome =
   //-----------------------------------
   // Deductions
   //-----------------------------------
+    const getEligibleDeduction = (section) => {
+    if (!section || !section.amount) {
+      return 0;
+    }
+
+    if (!section.exemptionLimit) {
+      return section.amount;
+    }
+
+    return Math.min(
+      section.amount,
+      section.exemptionLimit
+    );
+  };
 
   let totalDeductions = 0;
 
@@ -176,54 +189,43 @@ const housePropertyIncome =
     employeeRegime.regime === "OLD"
   ) {
 
-    totalDeductions +=
-      hraExemption;
+totalDeductions += hraExemption;
 
-    totalDeductions +=
-      declaration
-        .exemptionDetails
-        .interestPaidOnHousingLoan
-        .amount;
+    totalDeductions += getEligibleDeduction(
+      declaration.exemptionDetails.interestPaidOnHousingLoan
+    );
 
-    totalDeductions +=
-      declaration
-        .exemptionDetails
-        .section123.amount;
+    totalDeductions += getEligibleDeduction(
+      declaration.exemptionDetails.section123
+    );
 
-    totalDeductions +=
-      declaration
-        .exemptionDetails
-        .section124.amount;
+    totalDeductions += getEligibleDeduction(
+      declaration.exemptionDetails.section124
+    );
 
-    totalDeductions +=
-      declaration
-        .exemptionDetails
-        .section124_1B.amount;
+    totalDeductions += getEligibleDeduction(
+      declaration.exemptionDetails.section124_1B
+    );
 
-    totalDeductions +=
-      declaration
-        .exemptionDetails
-        .section126.amount;
+    totalDeductions += getEligibleDeduction(
+      declaration.exemptionDetails.section126
+    );
 
-    totalDeductions +=
-      declaration
-        .exemptionDetails
-        .section129.amount;
+    totalDeductions += getEligibleDeduction(
+      declaration.exemptionDetails.section129
+    );
 
-    totalDeductions +=
-      declaration
-        .exemptionDetails
-        .section131.amount;
+    totalDeductions += getEligibleDeduction(
+      declaration.exemptionDetails.section131
+    );
 
-    totalDeductions +=
-      declaration
-        .exemptionDetails
-        .section132.amount;
+    totalDeductions += getEligibleDeduction(
+      declaration.exemptionDetails.section132
+    );
 
-    totalDeductions +=
-      declaration
-        .exemptionDetails
-        .section133.amount;
+    totalDeductions += getEligibleDeduction(
+      declaration.exemptionDetails.section133
+    );
   }
 
   //-----------------------------------

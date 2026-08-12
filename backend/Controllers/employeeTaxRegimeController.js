@@ -68,3 +68,38 @@ export const deleteEmployeeRegime = async (req, res) => {
     });
   }
 };
+
+export const getEmployeeTaxRegime = async (req, res) => {
+  try {
+
+    const {
+      employeeId,
+      financialYearId
+    } = req.params;
+
+    const employeeTaxRegime =
+      await EmployeeTaxRegime.findOne({
+        employeeId,
+        financialYearId
+      }).populate("financialYearId");
+
+    if (!employeeTaxRegime) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Employee tax regime not found"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: employeeTaxRegime
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};

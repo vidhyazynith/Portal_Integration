@@ -32,13 +32,24 @@ const FinancialYearManagement = () => {
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+const handleInputChange = (e) => {
+  const { name, value, type, checked } = e.target;
+
+  const updatedData = {
+    ...formData,
+    [name]: type === "checkbox" ? checked : value,
   };
+
+  // Auto generate Financial Year
+  if (updatedData.startDate && updatedData.endDate) {
+    const startYear = new Date(updatedData.startDate).getFullYear();
+    const endYear = new Date(updatedData.endDate).getFullYear();
+
+    updatedData.name = `FY ${startYear}-${endYear}`;
+  }
+
+  setFormData(updatedData);
+};
 
   const resetForm = () => {
     setFormData({ name: '', startDate: '', endDate: '', active: true });
@@ -166,17 +177,38 @@ const FinancialYearManagement = () => {
               <form onSubmit={handleSubmit} className="form-sections">
                 <div className="form-section">
                   <div className="form-grid">
-                    <div className="form-group">
+                    <div className="form-row">
                       <label className="form-label">Name *</label>
-                      <input className="form-input" name="name" value={formData.name} onChange={handleInputChange} placeholder="e.g. FY 2025-26" required />
+                      <input
+                        className="form-input"
+                        name="name"
+                        value={formData.name}
+                        readOnly
+                      />
                     </div>
-                    <div className="form-group">
+
+                    <div className="form-row">
                       <label className="form-label">Start Date *</label>
-                      <input className="form-input" type="date" name="startDate" value={formData.startDate} onChange={handleInputChange} required />
+                      <input
+                        className="form-input"
+                        type="date"
+                        name="startDate"
+                        value={formData.startDate}
+                        onChange={handleInputChange}
+                        required
+                      />
                     </div>
-                    <div className="form-group">
+
+                    <div className="form-row">
                       <label className="form-label">End Date *</label>
-                      <input className="form-input" type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} required />
+                      <input
+                        className="form-input"
+                        type="date"
+                        name="endDate"
+                        value={formData.endDate}
+                        onChange={handleInputChange}
+                        required
+                      />
                     </div>
                   </div>
                 </div>
