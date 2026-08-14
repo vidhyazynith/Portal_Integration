@@ -1,7 +1,7 @@
 kind: pipeline
 type: ssh
 name: finance-frontend-deploy
- 
+
 server:
   host:
     from_secret: ssh_host
@@ -9,22 +9,45 @@ server:
     from_secret: ssh_user
   password:
     from_secret: ssh_password
- 
+
 steps:
   - name: deploy-frontend
     commands:
       - cd /home/ec2-user/frontend
-      - echo "Starting Finance frontend deployment..."
+
+      - echo "=== Pulling latest code ==="
       - git fetch origin
       - git reset --hard origin/main
-      - echo "Installing dependencies..."
-      - npm install
-      - echo "Removing old build..."
+
+      - echo "=== Checking API configuration ==="
+      - cat .env
+      - grep -q "VITE_API_URL=https://finance.zynith-it.com/api" .env || { echo "ERROR: VITE_API_URL is incorrect"; exit 1; }
+
+      - echo "=== Installing dependencies ==="
+      - npm ci
+
+      - echo "=== Removing old build ==="
       - rm -rf dist
-      - echo "Building React frontend..."
+
+      - echo "=== Building React frontend ==="
       - npm run build
-      - echo "Testing old IP is not present..."
-      - if grep -R "16.112.200.177" dist; then echo "ERROR: Old API IP found in build"; exit 1; fi
-      - echo "Reloading Nginx..."
+
+      - echo "=== Checking build for old API IP ==="
+      - if grep -R "16.112.200.177" dist; then
+          echo "ERROR: Old API IP found in build";
+          exit 1;
+        fi
+
+      - echo "=== Checking build contains correct API URL ==="
+      - if ! grep -R "finance.zynith-it.com/api" dist; then
+          echo "ERROR: Correct API URL not found in build";
+          exit 1;
+        fi
+
+      - echo "=== Reloading Nginx ==="
       - sudo systemctl reload nginx
-      - echo "Finance frontend deployment completed."
+
+      - echo "=== Checking Nginx ==="
+      - sudo systemctl is-active nginx
+
+      - echo "=== Finance frontend deployment completed ==="
