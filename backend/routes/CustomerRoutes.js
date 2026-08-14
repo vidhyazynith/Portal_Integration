@@ -8,7 +8,7 @@ import {
   updateCustomerStatus,
   getActiveCustomers,
   getCountries,
-  getStatesByCountry
+  getStatesByCountry 
 } from "../Controllers/CustomerController.js";
 import { authenticateToken, requireRole } from '../middleware/auth.js';
  

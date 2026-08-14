@@ -1,0 +1,30 @@
+kind: pipeline
+type: ssh
+name: finance-frontend-deploy
+ 
+server:
+  host:
+    from_secret: ssh_host
+  user:
+    from_secret: ssh_user
+  password:
+    from_secret: ssh_password
+ 
+steps:
+  - name: deploy-frontend
+    commands:
+      - cd /home/ec2-user/frontend
+      - echo "Starting Finance frontend deployment..."
+      - git fetch origin
+      - git reset --hard origin/main
+      - echo "Installing dependencies..."
+      - npm install
+      - echo "Removing old build..."
+      - rm -rf dist
+      - echo "Building React frontend..."
+      - npm run build
+      - echo "Testing old IP is not present..."
+      - if grep -R "16.112.200.177" dist; then echo "ERROR: Old API IP found in build"; exit 1; fi
+      - echo "Reloading Nginx..."
+      - sudo systemctl reload nginx
+      - echo "Finance frontend deployment completed."
