@@ -27,23 +27,34 @@ jobs:
             echo "Finance Frontend Deployment"
             echo "======================================"
 
-            # --------------------------------------
+            # ======================================
             # Node.js
-            # --------------------------------------
+            # ======================================
 
             echo "=== Loading NVM ==="
 
             export NVM_DIR="$HOME/.nvm"
+
+            if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+              echo "ERROR: NVM not found"
+              exit 1
+            fi
+
             source "$NVM_DIR/nvm.sh"
+
+            echo "=== Using Node 20 ==="
 
             nvm use 20
 
-            echo "Node: $(node -v)"
-            echo "NPM: $(npm -v)"
+            echo "=== Node version ==="
+            node -v
 
-            # --------------------------------------
+            echo "=== NPM version ==="
+            npm -v
+
+            # ======================================
             # Repository
-            # --------------------------------------
+            # ======================================
 
             echo "=== Going to repository root ==="
 
@@ -55,11 +66,11 @@ jobs:
             echo "=== Git remote ==="
             git remote -v
 
-            # --------------------------------------
-            # Existing Git lock
-            # --------------------------------------
+            # ======================================
+            # Check active Git process
+            # ======================================
 
-            echo "=== Checking Git processes ==="
+            echo "=== Checking active Git processes ==="
 
             if pgrep -x git >/dev/null 2>&1; then
               echo "ERROR: Git process is currently running:"
@@ -67,22 +78,37 @@ jobs:
               exit 1
             fi
 
-            echo "=== Removing stale Git lock files ==="
+            # ======================================
+            # Remove stale Git locks
+            # ======================================
 
-            rm -f .git/index.lock
-            rm -f .git/refs/remotes/origin/main.lock
+            echo "=== Removing stale Git locks ==="
 
-            # --------------------------------------
-            # Git update
-            # --------------------------------------
+            rm -f "$HOME/Portals/Portal_Integration/.git/index.lock"
+            rm -f "$HOME/Portals/Portal_Integration/.git/refs/remotes/origin/main.lock"
+
+            # ======================================
+            # Fetch
+            # ======================================
 
             echo "=== Fetching latest main ==="
 
             git fetch origin main --prune
 
-            echo "=== Removing stale index lock if created ==="
+            # ======================================
+            # Remove lock again
+            # ======================================
 
-            rm -f .git/index.lock
+            echo "=== Checking index lock before reset ==="
+
+            if [ -f "$HOME/Portals/Portal_Integration/.git/index.lock" ]; then
+              echo "Removing stale index.lock"
+              rm -f "$HOME/Portals/Portal_Integration/.git/index.lock"
+            fi
+
+            # ======================================
+            # Reset
+            # ======================================
 
             echo "=== Resetting to latest main ==="
 
@@ -92,15 +118,18 @@ jobs:
 
             git log -1 --oneline
 
-            # --------------------------------------
+            # ======================================
             # Frontend
-            # --------------------------------------
+            # ======================================
+
+            echo "=== Going to frontend directory ==="
 
             cd "$HOME/Portals/Portal_Integration/frontend"
 
             echo "=== Installing dependencies ==="
 
             rm -rf node_modules
+
             npm ci
 
             echo "=== Removing old build ==="
@@ -111,9 +140,9 @@ jobs:
 
             npm run build
 
-            # --------------------------------------
+            # ======================================
             # API validation
-            # --------------------------------------
+            # ======================================
 
             echo "=== Checking old API IP ==="
 
@@ -131,9 +160,9 @@ jobs:
 
             echo "=== API URL verification successful ==="
 
-            # --------------------------------------
+            # ======================================
             # Nginx
-            # --------------------------------------
+            # ======================================
 
             echo "=== Testing Nginx ==="
 
