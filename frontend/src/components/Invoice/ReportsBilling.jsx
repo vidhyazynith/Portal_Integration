@@ -356,6 +356,76 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
     }
   };
 
+  // ============================================================
+// HANDLE INVOICE EXCEL DOWNLOAD
+// ============================================================
+
+const handleDownloadInvoiceExcel = async () => {
+
+  if (!startDate || !endDate) {
+    alert(
+      "Please select both start and end dates"
+    );
+
+    return;
+  }
+
+  setReportLoading(true);
+
+  try {
+
+    const response =
+      await billingService.downloadInvoiceExcel(
+        startDate,
+        endDate
+      );
+
+    const blob =
+      new Blob(
+        [response.data],
+        {
+          type:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
+      );
+
+    const url =
+      window.URL.createObjectURL(blob);
+
+    const link =
+      document.createElement("a");
+
+    link.href = url;
+
+    link.download =
+      `invoice-report-${startDate}-to-${endDate}.xlsx`;
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+
+  } catch (error) {
+
+    console.error(
+      "Error downloading invoice Excel:",
+      error
+    );
+
+    alert(
+      "Error downloading invoice Excel report. Please try again."
+    );
+
+  } finally {
+
+    setReportLoading(false);
+
+  }
+};
+
   // Handle invoice download
   const handleDownloadInvoice = async (invoiceId) => {
     try {
@@ -1068,6 +1138,20 @@ const updateLocalInvoiceState = (invoiceId) => {
               >
                 {reportLoading ? 'Generating...' : 'Excel'}
               </button>
+
+                <button
+                  className="export-btn invoice-excel"
+                  onClick={handleDownloadInvoiceExcel}
+                  disabled={
+                    reportLoading ||
+                    !startDate ||
+                    !endDate
+                  }
+                >
+                  {reportLoading
+                    ? "Generating..."
+                    : "Invoice Excel"}
+                </button>
             </div>
           </div>
         </div>

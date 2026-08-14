@@ -8,7 +8,7 @@
     "dev": "node server.js",
     "test:hike": "node testHikeFunctionality.js",
     "test:hike-manual": "node -e \"import('./testHikeFunctionality.js').then(mod => mod.default())\""
-  }, 
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

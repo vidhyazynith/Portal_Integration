@@ -1,19 +1,19 @@
 name: Finance Frontend Deploy
- 
+
 on:
   push:
     branches:
       - main
- 
+
 concurrency:
   group: finance-portal-deployment
   cancel-in-progress: false
- 
+
 jobs:
   deploy:
     name: Deploy Finance Frontend
     runs-on: ubuntu-latest
- 
+
     steps:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.0
@@ -23,301 +23,451 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           command_timeout: 20m
- 
+
           script: |
-            set -e
- 
+            set -Eeuo pipefail
+
             echo "======================================"
             echo "Finance Frontend Deployment"
             echo "======================================"
- 
+
             # ======================================
-            # Node.js / NVM
+            # Configuration
             # ======================================
- 
+
+            REPO="$HOME/Portals/Portal_Integration"
+            FRONTEND="$REPO/frontend"
+            DEPLOY_DIR="/var/www/finance"
+
+            API_URL="https://finance.zynith-it.com/api"
+            FRONTEND_URL="https://finance.zynith-it.com"
+
+            OLD_API_IP="16.112.200.177"
+
+            # ======================================
+            # Error handler
+            # ======================================
+
+            trap 'echo "ERROR: Deployment failed at line $LINENO"; exit 1' ERR
+
+            # ======================================
+            # Load NVM / Node
+            # ======================================
+
             echo "=== Loading NVM ==="
- 
+
             export NVM_DIR="$HOME/.nvm"
- 
+
             if [ ! -s "$NVM_DIR/nvm.sh" ]; then
-              echo "ERROR: NVM not found"
+              echo "ERROR: NVM not found at $NVM_DIR/nvm.sh"
               exit 1
             fi
- 
+
             source "$NVM_DIR/nvm.sh"
- 
+
             echo "=== Using Node 20 ==="
- 
+
             nvm use 20
- 
+
             echo "=== Node version ==="
             node -v
- 
+
             echo "=== NPM version ==="
             npm -v
- 
+
             # ======================================
             # Repository
             # ======================================
- 
+
             echo "=== Going to repository root ==="
- 
-            cd "$HOME/Portals/Portal_Integration"
- 
+
+            cd "$REPO"
+
             echo "=== Repository ==="
             pwd
- 
+
             echo "=== Git remote ==="
             git remote -v
- 
+
             # ======================================
-            # Git lock protection
+            # Git safety
             # ======================================
- 
+
             echo "=== Checking active Git processes ==="
- 
+
             if pgrep -x git >/dev/null 2>&1; then
               echo "ERROR: Git process is currently running:"
               pgrep -ax git
               exit 1
             fi
- 
+
             echo "=== Removing stale Git locks ==="
- 
-            rm -f "$HOME/Portals/Portal_Integration/.git/index.lock"
-            rm -f "$HOME/Portals/Portal_Integration/.git/refs/remotes/origin/main.lock"
- 
+
+            rm -f "$REPO/.git/index.lock"
+            rm -f "$REPO/.git/refs/remotes/origin/main.lock"
+
             # ======================================
-            # Fetch latest code
+            # Fetch latest main
             # ======================================
- 
+
             echo "=== Fetching latest main ==="
- 
+
             git fetch origin main --prune
- 
+
+            # ======================================
+            # Reset repository
+            # ======================================
+
             echo "=== Checking index lock before reset ==="
- 
-            if [ -f "$HOME/Portals/Portal_Integration/.git/index.lock" ]; then
-              rm -f "$HOME/Portals/Portal_Integration/.git/index.lock"
+
+            if [ -f "$REPO/.git/index.lock" ]; then
+              echo "Removing stale index.lock"
+              rm -f "$REPO/.git/index.lock"
             fi
- 
+
             echo "=== Resetting to latest main ==="
- 
+
             git reset --hard origin/main
- 
+
             echo "=== Current commit ==="
- 
+
             git log -1 --oneline
- 
+
             # ======================================
             # Frontend
             # ======================================
- 
+
             echo "=== Going to frontend ==="
- 
-            cd "$HOME/Portals/Portal_Integration/frontend"
- 
+
+            cd "$FRONTEND"
+
+            echo "=== Frontend ==="
+            pwd
+
+            echo "=== Frontend package ==="
+
+            node -e '
+              const p = require("./package.json");
+              console.log("name:", p.name);
+              console.log("version:", p.version);
+            '
+
             # ======================================
-            # Environment
+            # Install dependencies
             # ======================================
- 
-            echo "=== Checking frontend environment ==="
- 
-            if [ ! -f .env ]; then
-              echo "ERROR: frontend .env file not found"
-              exit 1
-            fi
- 
-            echo "=== Frontend API configuration ==="
- 
-            grep "VITE_API_URL" .env
- 
-            # ======================================
-            # Dependencies
-            # ======================================
- 
+
             echo "=== Removing old node_modules ==="
- 
+
             rm -rf node_modules
- 
+
             echo "=== Installing dependencies ==="
- 
+
             npm ci
- 
+
             # ======================================
-            # Build
+            # Clean build
             # ======================================
- 
+
             echo "=== Removing old build ==="
- 
+
             rm -rf dist
- 
+
             echo "=== Building frontend ==="
- 
+
             npm run build
- 
+
             echo "=== Build completed ==="
- 
+
             # ======================================
-            # Validate build
+            # Verify build directory
             # ======================================
- 
+
             echo "=== Checking build directory ==="
- 
-            if [ ! -f dist/index.html ]; then
-              echo "ERROR: dist/index.html not found"
+
+            if [ ! -f "$FRONTEND/dist/index.html" ]; then
+              echo "ERROR: dist/index.html was not generated"
               exit 1
             fi
- 
-            if [ ! -d dist/assets ]; then
-              echo "ERROR: dist/assets directory not found"
+
+            if [ ! -d "$FRONTEND/dist/assets" ]; then
+              echo "ERROR: dist/assets directory was not generated"
               exit 1
             fi
- 
+
+            echo "=== Generated files ==="
+
+            find "$FRONTEND/dist" -maxdepth 2 -type f -print
+
             # ======================================
-            # Validate API URL
+            # API validation - build
             # ======================================
- 
-            echo "=== Checking old API IP ==="
- 
-            if grep -R "16.112.200.177" dist; then
-              echo "ERROR: Old API IP found in build"
+
+            echo "=== Checking old API IP in build ==="
+
+            if grep -R -F "$OLD_API_IP" "$FRONTEND/dist" >/dev/null 2>&1; then
+              echo "ERROR: Old API IP found in build:"
+              grep -R -F "$OLD_API_IP" "$FRONTEND/dist" || true
               exit 1
             fi
- 
-            echo "=== Checking correct API URL ==="
- 
-            if ! grep -R "https://finance.zynith-it.com/api" dist; then
-              echo "ERROR: Correct HTTPS API URL not found"
+
+            echo "=== Old API IP not found ==="
+
+            echo "=== Checking correct API URL in build ==="
+
+            if ! grep -R -F "$API_URL" "$FRONTEND/dist" >/dev/null 2>&1; then
+              echo "ERROR: Correct API URL not found in build"
               exit 1
             fi
- 
+
             echo "=== API URL verification successful ==="
- 
+
             # ======================================
-            # Show generated assets
+            # Verify frontend build JS
             # ======================================
- 
-            echo "=== Generated assets ==="
- 
-            ls -lah dist
-            ls -lah dist/assets
- 
+
+            echo "=== Finding generated JavaScript ==="
+
+            JS_FILE="$(find "$FRONTEND/dist/assets" -maxdepth 1 -type f -name '*.js' | head -n 1)"
+
+            if [ -z "$JS_FILE" ]; then
+              echo "ERROR: No JavaScript asset found"
+              exit 1
+            fi
+
+            echo "=== JS asset ==="
+            echo "$JS_FILE"
+
             # ======================================
-            # Deploy to Nginx directory
+            # Deploy
             # ======================================
- 
-            echo "=== Deploying build to /var/www/finance ==="
- 
-            sudo mkdir -p /var/www/finance
- 
-            echo "=== Removing old frontend files ==="
- 
-            sudo rm -rf /var/www/finance/*
- 
-            echo "=== Copying new frontend build ==="
- 
-            sudo cp -a dist/. /var/www/finance/
- 
+
+            echo "======================================"
+            echo "Deploying frontend"
+            echo "======================================"
+
+            echo "=== Checking deployment directory ==="
+
+            sudo mkdir -p "$DEPLOY_DIR"
+
+            # rsync is preferred because it deletes stale hashed assets
+            # while keeping the destination consistent.
+            if ! command -v rsync >/dev/null 2>&1; then
+              echo "=== rsync not found, installing ==="
+              sudo dnf install -y rsync || sudo yum install -y rsync
+            fi
+
+            echo "=== Copying build to $DEPLOY_DIR ==="
+
+            sudo rsync -a --delete \
+              "$FRONTEND/dist/" \
+              "$DEPLOY_DIR/"
+
             # ======================================
-            # Fix Nginx permissions
+            # Permissions
             # ======================================
- 
+
             echo "=== Setting Nginx ownership ==="
- 
-            sudo chown -R nginx:nginx /var/www/finance
- 
+
+            sudo chown -R nginx:nginx "$DEPLOY_DIR"
+
             echo "=== Setting directory permissions ==="
- 
-            sudo find /var/www/finance \
+
+            sudo find "$DEPLOY_DIR" \
               -type d \
               -exec chmod 755 {} \;
- 
+
             echo "=== Setting file permissions ==="
- 
-            sudo find /var/www/finance \
+
+            sudo find "$DEPLOY_DIR" \
               -type f \
               -exec chmod 644 {} \;
- 
+
             # ======================================
             # Verify deployed files
             # ======================================
- 
+
             echo "=== Verifying deployed index.html ==="
- 
-            sudo grep -o 'assets/[^"]*\.js' \
-              /var/www/finance/index.html
- 
+
+            if [ ! -f "$DEPLOY_DIR/index.html" ]; then
+              echo "ERROR: Deployed index.html does not exist"
+              exit 1
+            fi
+
+            grep -F "assets/" "$DEPLOY_DIR/index.html"
+
             echo "=== Verifying deployed assets ==="
- 
-            sudo ls -lah /var/www/finance/assets
- 
+
+            find "$DEPLOY_DIR/assets" -maxdepth 1 -type f -ls
+
             # ======================================
-            # Verify old IP is NOT deployed
+            # Verify deployed API configuration
             # ======================================
- 
+
             echo "=== Checking deployed files for old API IP ==="
- 
-            if sudo grep -R "16.112.200.177" /var/www/finance; then
-              echo "ERROR: Old API IP found in deployed frontend"
+
+            if sudo grep -R -F "$OLD_API_IP" "$DEPLOY_DIR" >/dev/null 2>&1; then
+              echo "ERROR: Old API IP found in deployed files"
+              sudo grep -R -F "$OLD_API_IP" "$DEPLOY_DIR" || true
               exit 1
             fi
- 
+
             echo "=== Old API IP not found ==="
- 
-            # ======================================
-            # Verify HTTPS API URL
-            # ======================================
- 
+
             echo "=== Checking deployed API URL ==="
- 
-            if ! sudo grep -R "https://finance.zynith-it.com/api" /var/www/finance; then
-              echo "ERROR: HTTPS API URL not found in deployed frontend"
+
+            if ! sudo grep -R -F "$API_URL" "$DEPLOY_DIR" >/dev/null 2>&1; then
+              echo "ERROR: API URL not found in deployed files"
               exit 1
             fi
- 
+
             echo "=== HTTPS API URL verified ==="
- 
+
             # ======================================
             # Nginx
             # ======================================
- 
+
             echo "=== Testing Nginx configuration ==="
- 
+
             sudo nginx -t
- 
+
             echo "=== Reloading Nginx ==="
- 
+
             sudo systemctl reload nginx
- 
+
             echo "=== Checking Nginx status ==="
- 
-            sudo systemctl is-active --quiet nginx
- 
+
+            if ! sudo systemctl is-active --quiet nginx; then
+              echo "ERROR: Nginx is not active"
+
+              sudo systemctl status nginx --no-pager -l || true
+
+              exit 1
+            fi
+
             echo "=== Nginx is active ==="
- 
+
             # ======================================
-            # HTTP verification
+            # Frontend HTTP verification
             # ======================================
- 
+
+            echo "======================================"
+            echo "Frontend HTTP Verification"
+            echo "======================================"
+
             echo "=== Checking frontend ==="
- 
-            curl -f -s \https://finance.zynith-it.com/login \> /dev/null
- 
-            echo "=== Frontend HTTPS check successful ==="
- 
+
+            HTTP_RESPONSE="$(
+              curl \
+                --fail \
+                --silent \
+                --show-error \
+                --location \
+                --connect-timeout 10 \
+                --max-time 30 \
+                "$FRONTEND_URL/"
+            )"
+
+            if [ -z "$HTTP_RESPONSE" ]; then
+              echo "ERROR: Frontend returned an empty response"
+              exit 1
+            fi
+
+            echo "=== Frontend returned successfully ==="
+
+            # Make sure we got our React/Vite index rather than an error page.
+            if ! printf '%s' "$HTTP_RESPONSE" | grep -qi '<!doctype html>'; then
+              echo "ERROR: Frontend response is not HTML"
+              exit 1
+            fi
+
+            if ! printf '%s' "$HTTP_RESPONSE" | grep -q 'id="root"'; then
+              echo "ERROR: React root element not found"
+              exit 1
+            fi
+
+            echo "=== Frontend HTML verification successful ==="
+
             # ======================================
-            # Final output
+            # Extract JS asset from live frontend
             # ======================================
- 
+
+            echo "=== Extracting live JavaScript asset ==="
+
+            LIVE_JS_PATH="$(
+              printf '%s' "$HTTP_RESPONSE" |
+              sed -n 's/.*<script[^>]*src="\([^"]*\.js\)".*/\1/p' |
+              head -n 1
+            )"
+
+            if [ -z "$LIVE_JS_PATH" ]; then
+              echo "ERROR: Could not find JavaScript asset in live index.html"
+              exit 1
+            fi
+
+            echo "=== Live JS asset ==="
+            echo "$LIVE_JS_PATH"
+
+            # ======================================
+            # Verify live JavaScript
+            # ======================================
+
+            echo "=== Checking live JavaScript ==="
+
+            LIVE_JS_URL="${FRONTEND_URL}${LIVE_JS_PATH}"
+
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              --location \
+              --connect-timeout 10 \
+              --max-time 30 \
+              "$LIVE_JS_URL" \
+              -o /tmp/finance-live.js
+
+            if [ ! -s /tmp/finance-live.js ]; then
+              echo "ERROR: Live JavaScript asset is empty"
+              rm -f /tmp/finance-live.js
+              exit 1
+            fi
+
+            echo "=== Live JavaScript downloaded successfully ==="
+
+            # ======================================
+            # Verify API URL in live JS
+            # ======================================
+
+            if ! grep -F "$API_URL" /tmp/finance-live.js >/dev/null 2>&1; then
+              echo "ERROR: Expected API URL not found in live JavaScript"
+              rm -f /tmp/finance-live.js
+              exit 1
+            fi
+
+            echo "=== Live API URL verified ==="
+
+            # ======================================
+            # Cleanup
+            # ======================================
+
+            rm -f /tmp/finance-live.js
+
+            # ======================================
+            # Final
+            # ======================================
+
+            echo ""
             echo "======================================"
-            echo "Finance frontend deployment completed"
+            echo "Finance frontend deployment SUCCESS"
             echo "======================================"
- 
             echo "Commit:"
             git log -1 --oneline
- 
-            echo "Deployed frontend:"
-            sudo ls -lah /var/www/finance
- 
+            echo ""
+            echo "Frontend:"
+            echo "$FRONTEND_URL"
+            echo ""
+            echo "API:"
+            echo "$API_URL"
+            echo ""
+            echo "Deployment directory:"
+            echo "$DEPLOY_DIR"
             echo "======================================"

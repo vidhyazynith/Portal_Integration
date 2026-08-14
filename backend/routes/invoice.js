@@ -15,7 +15,8 @@ import {
   disableInvoice, 
   restoreInvoice, 
   permanentDeleteInvoice,
-  getInvoiceDownloadUrl
+  getInvoiceDownloadUrl,
+  exportInvoiceExcel
 } from "../Controllers/invoiceController.js";
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 
@@ -39,6 +40,7 @@ router.get("/invoices", authenticateToken, requireRole('admin'), getInvoices);
 router.get("/invoices/disabled", authenticateToken, requireRole('admin'), getDisabledInvoices); 
 
 router.get("/invoices/:id", authenticateToken, requireRole('admin'), getInvoiceById);
+router.get("/invoices/export/excel",authenticateToken,requireRole("admin"),exportInvoiceExcel);
 router.get("/invoices/:id/download", authenticateToken, requireRole('admin'), downloadInvoice);
 router.put("/invoices/:id", authenticateToken, requireRole('admin'), updateInvoice);
 router.delete("/invoices/:id", authenticateToken, requireRole('admin'), deleteInvoice);
