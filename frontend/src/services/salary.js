@@ -9,7 +9,7 @@ export const salaryService = {
       console.error('Error fetching employees:', error);
       throw error;
     }
-  },
+  }, 
  
   // Get employee details by ID
   async getEmployeeDetails(employeeId) {
