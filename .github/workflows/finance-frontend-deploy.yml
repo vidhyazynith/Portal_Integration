@@ -35,18 +35,19 @@ jobs:
             echo "=== Going to frontend directory ==="
             cd /home/ec2-user/Portals/Portal_Integration/frontend
 
-            echo "=== Pulling latest code ==="
-            git fetch origin
+            echo "=== Fixing Git remote references ==="
+
+            # Remove stale remote-tracking references
+            git remote prune origin || true
+
+            # Remove the problematic origin/main reference
+            git update-ref -d refs/remotes/origin/main || true
+
+            echo "=== Fetching latest code ==="
+            git fetch --prune origin
+
+            echo "=== Resetting to latest main ==="
             git reset --hard origin/main
-
-            echo "=== Checking environment ==="
-            if [ ! -f .env ]; then
-              echo "ERROR: .env file not found"
-              exit 1
-            fi
-
-            echo "=== Current API configuration ==="
-            grep "VITE_API_URL" .env
 
             echo "=== Installing dependencies ==="
             npm ci
@@ -54,11 +55,10 @@ jobs:
             echo "=== Removing old build ==="
             rm -rf dist
 
-            echo "=== Building React/Vite frontend ==="
+            echo "=== Building frontend ==="
             npm run build
 
-            echo "=== Checking build ==="
-
+            echo "=== Checking build directory ==="
             if [ ! -d dist ]; then
               echo "ERROR: dist directory was not created"
               exit 1
@@ -66,27 +66,23 @@ jobs:
 
             echo "=== Checking for old API IP ==="
             if grep -R "16.112.200.177" dist; then
-              echo "ERROR: Old API IP found in frontend build"
+              echo "ERROR: Old API IP found in build"
               exit 1
             fi
 
             echo "=== Checking correct API URL ==="
             if ! grep -R "finance.zynith-it.com/api" dist; then
-              echo "ERROR: Correct API URL was not found in frontend build"
+              echo "ERROR: Correct API URL was not found in build"
               exit 1
             fi
-
-            echo "=== Checking generated files ==="
-            ls -lah dist
-            ls -lah dist/assets | head
 
             echo "=== Reloading Nginx ==="
             sudo systemctl reload nginx
 
-            echo "=== Checking Nginx status ==="
+            echo "=== Checking Nginx ==="
             sudo systemctl is-active nginx
 
-            echo "=== Testing HTTPS endpoint ==="
+            echo "=== Testing website ==="
             curl -I https://finance.zynith-it.com
 
             echo "======================================"
