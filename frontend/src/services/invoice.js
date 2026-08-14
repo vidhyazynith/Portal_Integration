@@ -227,7 +227,7 @@ export const calculateInvoiceTotals = (
     (sum, item) =>
       sum + (Number(item.amount) || 0),
     0
-  );
+  ); 
 
   const totalGstAmount = items.reduce(
     (sum, item) =>
