@@ -11,20 +11,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to EC2
+      - name: Deploy Finance Frontend to EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          command_timeout: 10m
+
           script: |
             set -e
 
-            cd /home/ec2-user/frontend
+            echo "======================================"
+            echo "Finance Frontend Deployment"
+            echo "======================================"
 
-            echo "=== Pulling latest frontend code ==="
+            echo "=== Checking server ==="
+            whoami
+            hostname
+            pwd
+
+            echo "=== Going to frontend directory ==="
+            cd /home/ec2-user/Portals/Portal_Integration/frontend
+
+            echo "=== Pulling latest code ==="
             git fetch origin
             git reset --hard origin/main
+
+            echo "=== Checking environment ==="
+            if [ ! -f .env ]; then
+              echo "ERROR: .env file not found"
+              exit 1
+            fi
+
+            echo "=== Current API configuration ==="
+            grep "VITE_API_URL" .env
 
             echo "=== Installing dependencies ==="
             npm ci
@@ -32,25 +54,41 @@ jobs:
             echo "=== Removing old build ==="
             rm -rf dist
 
-            echo "=== Building frontend ==="
+            echo "=== Building React/Vite frontend ==="
             npm run build
+
+            echo "=== Checking build ==="
+
+            if [ ! -d dist ]; then
+              echo "ERROR: dist directory was not created"
+              exit 1
+            fi
 
             echo "=== Checking for old API IP ==="
             if grep -R "16.112.200.177" dist; then
-              echo "ERROR: Old API IP found in build"
+              echo "ERROR: Old API IP found in frontend build"
               exit 1
             fi
 
-            echo "=== Checking API URL ==="
+            echo "=== Checking correct API URL ==="
             if ! grep -R "finance.zynith-it.com/api" dist; then
-              echo "ERROR: Correct API URL not found in build"
+              echo "ERROR: Correct API URL was not found in frontend build"
               exit 1
             fi
+
+            echo "=== Checking generated files ==="
+            ls -lah dist
+            ls -lah dist/assets | head
 
             echo "=== Reloading Nginx ==="
             sudo systemctl reload nginx
 
-            echo "=== Checking Nginx ==="
+            echo "=== Checking Nginx status ==="
             sudo systemctl is-active nginx
 
-            echo "=== Finance frontend deployment completed ==="
+            echo "=== Testing HTTPS endpoint ==="
+            curl -I https://finance.zynith-it.com
+
+            echo "======================================"
+            echo "Finance frontend deployment completed"
+            echo "======================================"

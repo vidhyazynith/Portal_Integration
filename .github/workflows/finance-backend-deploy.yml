@@ -7,29 +7,66 @@ on:
 
 jobs:
   deploy:
+    name: Deploy Finance Backend
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to EC2
+      - name: Deploy Backend to EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          command_timeout: 10m
+
           script: |
             set -e
 
-            cd /home/ec2-user/backend
+            echo "======================================"
+            echo "Finance Backend Deployment"
+            echo "======================================"
 
-            echo "Pulling latest backend code..."
+            echo "=== Server information ==="
+            whoami
+            hostname
+            pwd
+
+            echo "=== Going to backend directory ==="
+            cd /home/ec2-user/Portals/Portal_Integration/backend
+
+            echo "=== Pulling latest backend code ==="
             git fetch origin
             git reset --hard origin/main
 
-            echo "Installing dependencies..."
+            echo "=== Checking Node.js ==="
+            node --version
+            npm --version
+
+            echo "=== Installing dependencies ==="
             npm ci
 
-            echo "Restarting backend..."
+            echo "=== Checking PM2 ==="
+            pm2 status
+
+            echo "=== Restarting Finance backend ==="
             pm2 restart finance-backend --update-env
 
-            echo "Backend status:"
+            echo "=== Saving PM2 process list ==="
+            pm2 save
+
+            echo "=== Waiting for backend ==="
+            sleep 3
+
+            echo "=== Backend status ==="
             pm2 status
+
+            echo "=== Backend logs ==="
+            pm2 logs finance-backend --lines 20 --nostream
+
+            echo "=== Testing backend locally ==="
+            curl -f http://127.0.0.1:5003/ || true
+
+            echo "======================================"
+            echo "Finance backend deployment completed"
+            echo "======================================"

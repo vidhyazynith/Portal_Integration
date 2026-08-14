@@ -14,7 +14,7 @@ export const customerService = {
   async createCustomer(customerData) {
   // Format the address data for the new structure
   const response = await api.post('/Customer/add-customer', customerData);
-  return response.data;
+  return response.data; 
   },
 
   async updateCustomer(customerId, customerData) {
