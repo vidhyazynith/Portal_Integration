@@ -11,15 +11,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy Finance Frontend to EC2
+      - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          command_timeout: 10m
-
           script: |
             set -e
 
@@ -27,63 +25,80 @@ jobs:
             echo "Finance Frontend Deployment"
             echo "======================================"
 
-            echo "=== Checking server ==="
-            whoami
-            hostname
-            pwd
+            echo "=== Loading NVM ==="
 
-            echo "=== Going to frontend directory ==="
-            cd /home/ec2-user/Portals/Portal_Integration/frontend
+            export NVM_DIR="$HOME/.nvm"
 
-            echo "=== Fixing Git remote references ==="
-
-            # Remove stale remote-tracking references
-            git remote prune origin || true
-
-            # Remove the problematic origin/main reference
-            git update-ref -d refs/remotes/origin/main || true
-
-            echo "=== Fetching latest code ==="
-            git fetch --prune origin
-
-            echo "=== Resetting to latest main ==="
-            git reset --hard origin/main
-
-            echo "=== Installing dependencies ==="
-            npm ci
-
-            echo "=== Removing old build ==="
-            rm -rf dist
-
-            echo "=== Building frontend ==="
-            npm run build
-
-            echo "=== Checking build directory ==="
-            if [ ! -d dist ]; then
-              echo "ERROR: dist directory was not created"
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              source "$NVM_DIR/nvm.sh"
+            else
+              echo "ERROR: NVM not found"
               exit 1
             fi
 
+            echo "=== Using Node 20 ==="
+            nvm use 20
+
+            echo "=== Node version ==="
+            node -v
+
+            echo "=== NPM version ==="
+            npm -v
+
+            echo "=== Going to frontend directory ==="
+            cd "$HOME/Portals/Portal_Integration/frontend"
+
+            echo "=== Fixing Git remote references ==="
+
+            git remote -v
+
+            rm -f .git/refs/remotes/origin/main.lock
+
+            git remote prune origin || true
+
+            echo "=== Fetching latest code ==="
+
+            git fetch origin --prune
+
+            echo "=== Resetting to latest main ==="
+
+            git reset --hard origin/main
+
+            echo "=== Installing dependencies ==="
+
+            rm -rf node_modules
+
+            npm ci
+
+            echo "=== Removing old build ==="
+
+            rm -rf dist
+
+            echo "=== Building frontend ==="
+
+            npm run build
+
             echo "=== Checking for old API IP ==="
+
             if grep -R "16.112.200.177" dist; then
               echo "ERROR: Old API IP found in build"
               exit 1
             fi
 
-            echo "=== Checking correct API URL ==="
+            echo "=== Checking API URL ==="
+
             if ! grep -R "finance.zynith-it.com/api" dist; then
-              echo "ERROR: Correct API URL was not found in build"
+              echo "ERROR: Correct API URL not found in build"
               exit 1
             fi
 
             echo "=== Reloading Nginx ==="
+
             sudo systemctl reload nginx
 
             echo "=== Checking Nginx ==="
-            sudo systemctl is-active nginx
 
-            echo "=== Testing website ==="
-            curl -I https://finance.zynith-it.com
+            sudo systemctl is-active nginx
 
             echo "======================================"
             echo "Finance frontend deployment completed"
