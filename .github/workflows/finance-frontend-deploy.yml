@@ -1,53 +1,56 @@
-kind: pipeline
-type: ssh
-name: finance-frontend-deploy
+name: Finance Frontend Deploy
 
-server:
-  host:
-    from_secret: ssh_host
-  user:
-    from_secret: ssh_user
-  password:
-    from_secret: ssh_password
+on:
+  push:
+    branches:
+      - main
 
-steps:
-  - name: deploy-frontend
-    commands:
-      - cd /home/ec2-user/frontend
+jobs:
+  deploy:
+    name: Deploy Finance Frontend
+    runs-on: ubuntu-latest
 
-      - echo "=== Pulling latest code ==="
-      - git fetch origin
-      - git reset --hard origin/main
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
 
-      - echo "=== Checking API configuration ==="
-      - cat .env
-      - grep -q "VITE_API_URL=https://finance.zynith-it.com/api" .env || { echo "ERROR: VITE_API_URL is incorrect"; exit 1; }
+            cd /home/ec2-user/frontend
 
-      - echo "=== Installing dependencies ==="
-      - npm ci
+            echo "=== Pulling latest frontend code ==="
+            git fetch origin
+            git reset --hard origin/main
 
-      - echo "=== Removing old build ==="
-      - rm -rf dist
+            echo "=== Installing dependencies ==="
+            npm ci
 
-      - echo "=== Building React frontend ==="
-      - npm run build
+            echo "=== Removing old build ==="
+            rm -rf dist
 
-      - echo "=== Checking build for old API IP ==="
-      - if grep -R "16.112.200.177" dist; then
-          echo "ERROR: Old API IP found in build";
-          exit 1;
-        fi
+            echo "=== Building frontend ==="
+            npm run build
 
-      - echo "=== Checking build contains correct API URL ==="
-      - if ! grep -R "finance.zynith-it.com/api" dist; then
-          echo "ERROR: Correct API URL not found in build";
-          exit 1;
-        fi
+            echo "=== Checking for old API IP ==="
+            if grep -R "16.112.200.177" dist; then
+              echo "ERROR: Old API IP found in build"
+              exit 1
+            fi
 
-      - echo "=== Reloading Nginx ==="
-      - sudo systemctl reload nginx
+            echo "=== Checking API URL ==="
+            if ! grep -R "finance.zynith-it.com/api" dist; then
+              echo "ERROR: Correct API URL not found in build"
+              exit 1
+            fi
 
-      - echo "=== Checking Nginx ==="
-      - sudo systemctl is-active nginx
+            echo "=== Reloading Nginx ==="
+            sudo systemctl reload nginx
 
-      - echo "=== Finance frontend deployment completed ==="
+            echo "=== Checking Nginx ==="
+            sudo systemctl is-active nginx
+
+            echo "=== Finance frontend deployment completed ==="
