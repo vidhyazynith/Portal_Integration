@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+# Prevent two frontend deployments from running at the same time
+concurrency:
+  group: finance-frontend-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy Finance Frontend
@@ -18,6 +23,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
+          command_timeout: 20m
 
           script: |
             set -e
@@ -25,6 +31,33 @@ jobs:
             echo "======================================"
             echo "Finance Frontend Deployment"
             echo "======================================"
+
+            # --------------------------------------
+            # Deployment lock
+            # --------------------------------------
+
+            LOCK_FILE="$HOME/.finance-frontend-deploy.lock"
+
+            if [ -f "$LOCK_FILE" ]; then
+              OLD_PID=$(cat "$LOCK_FILE" || true)
+
+              if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+                echo "ERROR: Another frontend deployment is already running."
+                echo "PID: $OLD_PID"
+                exit 1
+              else
+                echo "Removing stale deployment lock..."
+                rm -f "$LOCK_FILE"
+              fi
+            fi
+
+            echo $$ > "$LOCK_FILE"
+
+            cleanup() {
+              rm -f "$LOCK_FILE"
+            }
+
+            trap cleanup EXIT
 
             # --------------------------------------
             # Node.js
@@ -42,7 +75,6 @@ jobs:
             fi
 
             echo "=== Using Node 20 ==="
-
             nvm use 20
 
             echo "=== Node version ==="
@@ -50,7 +82,6 @@ jobs:
 
             echo "=== NPM version ==="
             npm -v
-
 
             # --------------------------------------
             # Repository
@@ -66,51 +97,37 @@ jobs:
             echo "=== Git remote ==="
             git remote -v
 
-
             # --------------------------------------
-            # Check for running Git processes
-            # --------------------------------------
-
-            echo "=== Checking for running Git processes ==="
-
-            if pgrep -af "git.*Portal_Integration" >/dev/null; then
-              echo "ERROR: Another Git process is currently running."
-              echo "Deployment stopped to avoid corrupting the repository."
-              pgrep -af "git.*Portal_Integration"
-              exit 1
-            fi
-
-
-            # --------------------------------------
-            # Remove stale Git locks
+            # Check stale lock files
             # --------------------------------------
 
             echo "=== Checking Git lock files ==="
 
             if [ -f ".git/index.lock" ]; then
-              echo "Found stale .git/index.lock"
-              rm -f ".git/index.lock"
-              echo "Removed .git/index.lock"
+              echo "Found .git/index.lock"
+
+              # Only remove if no Git process is using the repository
+              if ! pgrep -af "git" | grep -q "Portal_Integration"; then
+                rm -f ".git/index.lock"
+                echo "Removed stale .git/index.lock"
+              else
+                echo "ERROR: Git process is active."
+                exit 1
+              fi
             fi
 
             if [ -f ".git/refs/remotes/origin/main.lock" ]; then
-              echo "Found stale origin/main.lock"
+              echo "Removing stale origin/main.lock"
               rm -f ".git/refs/remotes/origin/main.lock"
-              echo "Removed origin/main.lock"
             fi
-
 
             # --------------------------------------
             # Git update
             # --------------------------------------
 
-            echo "=== Pruning remote references ==="
-
-            git remote prune origin || true
-
             echo "=== Fetching latest code ==="
 
-            git fetch --prune origin
+            git fetch origin main --prune
 
             echo "=== Resetting to latest main ==="
 
@@ -119,7 +136,6 @@ jobs:
             echo "=== Current commit ==="
 
             git log -1 --oneline
-
 
             # --------------------------------------
             # Frontend
@@ -135,7 +151,6 @@ jobs:
 
             npm ci
 
-
             # --------------------------------------
             # Build
             # --------------------------------------
@@ -148,9 +163,8 @@ jobs:
 
             npm run build
 
-
             # --------------------------------------
-            # Verify API URL
+            # Verify API configuration
             # --------------------------------------
 
             echo "=== Checking for old API IP ==="
@@ -169,10 +183,13 @@ jobs:
 
             echo "=== API URL verification successful ==="
 
-
             # --------------------------------------
             # Nginx
             # --------------------------------------
+
+            echo "=== Testing Nginx configuration ==="
+
+            sudo nginx -t
 
             echo "=== Reloading Nginx ==="
 
@@ -180,8 +197,9 @@ jobs:
 
             echo "=== Checking Nginx ==="
 
-            sudo systemctl is-active nginx
+            sudo systemctl is-active --quiet nginx
 
+            echo "Nginx is active"
 
             # --------------------------------------
             # Complete
