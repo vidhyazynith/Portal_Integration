@@ -7,6 +7,7 @@ import Company from '../models/Company.js';
 import Transaction from '../models/Transaction.js';
 import pkg from "number-to-words";
 import axios from "axios";
+import ExcelJS from "exceljs";
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -4877,5 +4878,449 @@ export const restoreInvoice = async (req, res) => {
   } catch (error) {
     console.error("Error restoring invoice:", error);
     res.status(500).json({ message: "Error restoring invoice", error: error.message });
+  }
+};
+// ============================================================
+// EXPORT INVOICE REPORT TO EXCEL
+// ============================================================
+
+export const exportInvoiceExcel = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    console.log("📊 Invoice Excel export requested:", {
+      startDate,
+      endDate
+    });
+
+    // ---------------------------------------------------------
+    // VALIDATION
+    // ---------------------------------------------------------
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Start date and end date are required"
+      });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Make sure the dates are valid
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date range"
+      });
+    }
+
+    // ---------------------------------------------------------
+    // START DATE = 00:00:00
+    // ---------------------------------------------------------
+
+    start.setHours(0, 0, 0, 0);
+
+    // ---------------------------------------------------------
+    // END DATE = 23:59:59
+    // ---------------------------------------------------------
+
+    end.setHours(23, 59, 59, 999);
+
+    // ---------------------------------------------------------
+    // VALIDATE RANGE
+    // ---------------------------------------------------------
+
+    if (start > end) {
+      return res.status(400).json({
+        success: false,
+        message: "Start date cannot be greater than end date"
+      });
+    }
+
+    // ---------------------------------------------------------
+    // FETCH INVOICES
+    // ---------------------------------------------------------
+
+    const invoices = await Invoice.find({
+      date: {
+        $gte: start,
+        $lte: end
+      },
+
+      // Do not include disabled invoices
+      isDisabled: {
+        $ne: true
+      }
+    })
+      .populate(
+        "customerId",
+        "name customerId"
+      )
+      .sort({
+        date: 1,
+        invoiceNumber: 1
+      });
+
+    console.log(
+      `📊 Found ${invoices.length} invoices`
+    );
+
+    // ---------------------------------------------------------
+    // CREATE WORKBOOK
+    // ---------------------------------------------------------
+
+    const workbook =
+      new ExcelJS.Workbook();
+
+    workbook.creator =
+      "Billing System";
+
+    workbook.created =
+      new Date();
+
+    workbook.modified =
+      new Date();
+
+    // ---------------------------------------------------------
+    // CREATE WORKSHEET
+    // ---------------------------------------------------------
+
+    const worksheet =
+      workbook.addWorksheet(
+        "Invoice Report"
+      );
+
+    // ---------------------------------------------------------
+    // COLUMN DEFINITIONS
+    // ---------------------------------------------------------
+
+    worksheet.columns = [
+      {
+        header: "Customer Name",
+        key: "customerName",
+        width: 30
+      },
+      {
+        header: "Invoice No",
+        key: "invoiceNumber",
+        width: 22
+      },
+      {
+        header: "Invoice Date",
+        key: "invoiceDate",
+        width: 18
+      },
+      {
+        header: "Amount",
+        key: "amount",
+        width: 18
+      }
+    ];
+
+    // ---------------------------------------------------------
+    // TITLE
+    // ---------------------------------------------------------
+
+    worksheet.insertRow(
+      1,
+      ["INVOICE REPORT"]
+    );
+
+    worksheet.mergeCells(
+      "A1:D1"
+    );
+
+    worksheet.getCell(
+      "A1"
+    ).font = {
+      bold: true,
+      size: 16
+    };
+
+    worksheet.getCell(
+      "A1"
+    ).alignment = {
+      horizontal: "center",
+      vertical: "middle"
+    };
+
+    worksheet.getRow(
+      1
+    ).height = 25;
+
+    // ---------------------------------------------------------
+    // DATE RANGE
+    // ---------------------------------------------------------
+
+    worksheet.insertRow(
+      2,
+      [
+        `From: ${startDate}`,
+        `To: ${endDate}`
+      ]
+    );
+
+    worksheet.mergeCells(
+      "B2:D2"
+    );
+
+    worksheet.getCell(
+      "A2"
+    ).font = {
+      bold: true
+    };
+
+    worksheet.getCell(
+      "B2"
+    ).font = {
+      bold: true
+    };
+
+    // ---------------------------------------------------------
+    // HEADER ROW
+    // ---------------------------------------------------------
+
+    const headerRow =
+      worksheet.getRow(4);
+
+    headerRow.font = {
+      bold: true
+    };
+
+    headerRow.alignment = {
+      horizontal: "center",
+      vertical: "middle"
+    };
+
+    headerRow.height = 22;
+
+    // ---------------------------------------------------------
+    // HEADER BORDER
+    // ---------------------------------------------------------
+
+    headerRow.eachCell(
+      (cell) => {
+
+        cell.border = {
+          top: {
+            style: "thin"
+          },
+          left: {
+            style: "thin"
+          },
+          bottom: {
+            style: "thin"
+          },
+          right: {
+            style: "thin"
+          }
+        };
+
+      }
+    );
+
+    // ---------------------------------------------------------
+    // TOTAL
+    // ---------------------------------------------------------
+
+    let totalAmount = 0;
+
+    // ---------------------------------------------------------
+    // ADD INVOICES
+    // ---------------------------------------------------------
+
+    invoices.forEach(
+      (invoice) => {
+
+        const customerName =
+          invoice.customerId?.name ||
+          "N/A";
+
+        const invoiceNumber =
+          invoice.invoiceNumber ||
+          "N/A";
+
+        const invoiceDate =
+          invoice.date
+            ? new Date(
+                invoice.date
+              )
+            : null;
+
+        const amount =
+          Number(
+            invoice.totalAmount
+          ) || 0;
+
+        totalAmount += amount;
+
+        const row =
+          worksheet.addRow({
+            customerName,
+            invoiceNumber,
+            invoiceDate,
+            amount
+          });
+
+        // -----------------------------------------------------
+        // DATE FORMAT
+        // -----------------------------------------------------
+
+        row.getCell(
+          "invoiceDate"
+        ).numFmt =
+          "dd-mm-yyyy";
+
+        // -----------------------------------------------------
+        // AMOUNT FORMAT
+        // -----------------------------------------------------
+
+        row.getCell(
+          "amount"
+        ).numFmt =
+          '#,##0.00';
+
+        // -----------------------------------------------------
+        // BORDERS
+        // -----------------------------------------------------
+
+        row.eachCell(
+          (cell) => {
+
+            cell.border = {
+              top: {
+                style: "thin"
+              },
+              left: {
+                style: "thin"
+              },
+              bottom: {
+                style: "thin"
+              },
+              right: {
+                style: "thin"
+              }
+            };
+
+          }
+        );
+      }
+    );
+
+    // ---------------------------------------------------------
+    // TOTAL ROW
+    // ---------------------------------------------------------
+
+    const totalRow =
+      worksheet.addRow({
+        customerName: "TOTAL",
+        invoiceNumber: "",
+        invoiceDate: "",
+        amount: totalAmount
+      });
+
+    totalRow.font = {
+      bold: true
+    };
+
+    totalRow.getCell(
+      "amount"
+    ).numFmt =
+      '#,##0.00';
+
+    totalRow.eachCell(
+      (cell) => {
+
+        cell.border = {
+          top: {
+            style: "thin"
+          },
+          left: {
+            style: "thin"
+          },
+          bottom: {
+            style: "thin"
+          },
+          right: {
+            style: "thin"
+          }
+        };
+
+      }
+    );
+
+    // ---------------------------------------------------------
+    // FREEZE HEADER
+    // ---------------------------------------------------------
+
+    worksheet.views = [
+      {
+        state: "frozen",
+        ySplit: 4
+      }
+    ];
+
+    // ---------------------------------------------------------
+    // AUTO FILTER
+    // ---------------------------------------------------------
+
+    worksheet.autoFilter = {
+      from: "A4",
+      to: "D4"
+    };
+
+    // ---------------------------------------------------------
+    // RESPONSE HEADERS
+    // ---------------------------------------------------------
+
+    const fileName =
+      `invoice-report-${startDate}-to-${endDate}.xlsx`;
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${fileName}"`
+    );
+
+    // ---------------------------------------------------------
+    // WRITE EXCEL TO RESPONSE
+    // ---------------------------------------------------------
+
+    await workbook.xlsx.write(
+      res
+    );
+
+    res.end();
+
+    console.log(
+      "✅ Invoice Excel report generated:",
+      fileName
+    );
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error generating invoice Excel:",
+      error
+    );
+
+    if (!res.headersSent) {
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Error generating invoice Excel report",
+        error:
+          error.message
+      });
+    }
   }
 };

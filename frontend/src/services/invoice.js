@@ -102,6 +102,18 @@ export const billingService = {
     });
     return response;
   },
+
+  // Download Invoice Excel report
+async downloadInvoiceExcel(startDate, endDate) {
+  const response = await api.get(
+    `${BILLING_API_URL}/invoices/export/excel?startDate=${startDate}&endDate=${endDate}`,
+    {
+      responseType: 'blob'
+    }
+  );
+
+  return response;
+},
    // Add these two new methods:
   async getInvoiceDownloadUrl(invoiceId) {
     try {
