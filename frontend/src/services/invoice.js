@@ -217,18 +217,66 @@ export const extractErrorMessage = (error) => {
 };
 
 
-export const calculateInvoiceTotals = (items, taxPercent = 0, currency = 'USD') => {
-  const subtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-  const taxAmount = subtotal * (taxPercent / 100);
-  const total = subtotal + taxAmount;
+export const calculateInvoiceTotals = (
+  items,
+  gstType = 'NONE',
+  currency = 'USD'
+) => {
+
+  const subtotal = items.reduce(
+    (sum, item) =>
+      sum + (Number(item.amount) || 0),
+    0
+  );
+
+  const totalGstAmount = items.reduce(
+    (sum, item) =>
+      sum + (Number(item.gstAmount) || 0),
+    0
+  );
+
+  let cgstAmount = 0;
+  let sgstAmount = 0;
+  let igstAmount = 0;
+
+  if (gstType === 'INTRA_STATE') {
+
+    cgstAmount = totalGstAmount / 2;
+    sgstAmount = totalGstAmount / 2;
+
+  } else if (gstType === 'INTER_STATE') {
+
+    igstAmount = totalGstAmount;
+  }
+
+  const total =
+    subtotal + totalGstAmount;
 
   return {
-    subtotal: subtotal,
-    taxAmount: taxAmount,
-    total: total,
-    formattedSubtotal: formatCurrencyDisplay(subtotal, currency),
-    formattedTaxAmount: formatCurrencyDisplay(taxAmount, currency),
-    formattedTotal: formatCurrencyDisplay(total, currency)
+    subtotal,
+    cgstAmount,
+    sgstAmount,
+    igstAmount,
+    totalGstAmount,
+    total,
+
+    formattedSubtotal:
+      formatCurrencyDisplay(subtotal, currency),
+
+    formattedCgst:
+      formatCurrencyDisplay(cgstAmount, currency),
+
+    formattedSgst:
+      formatCurrencyDisplay(sgstAmount, currency),
+
+    formattedIgst:
+      formatCurrencyDisplay(igstAmount, currency),
+
+    formattedGst:
+      formatCurrencyDisplay(totalGstAmount, currency),
+
+    formattedTotal:
+      formatCurrencyDisplay(total, currency)
   };
 };
 

@@ -597,6 +597,75 @@
   padding: 8px 12px;
   border: 1px solid #e9ecef;
 }
+.invoice-items-table .column-action {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+  text-align: center;
+  white-space: nowrap;
+
+  /* Keep Action column visible */
+  position: sticky;
+  right: 0;
+  z-index: 5;
+
+  /* Important so content behind it doesn't show */
+  background: #ffffff;
+}
+.invoice-items-table td[data-label="Action"] {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+  text-align: center;
+  white-space: nowrap;
+
+  position: sticky;
+  right: 0;
+  z-index: 4;
+
+  background: #ffffff;
+}
+
+.invoice-items-table td[data-label="Action"] .remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 70px;
+  height: 34px;
+
+  padding: 6px 12px;
+
+  white-space: nowrap;
+}
+
+/* Header should stay above the body */
+.invoice-items-table th.column-action {
+  z-index: 6;
+}
+
+.invoice-items-table .column-gst {
+  width: 90px;
+  min-width: 90px;
+  text-align: center;
+}
+.invoice-items-table .column-gst-amount {
+  width: 130px;
+  min-width: 130px;
+  text-align: right;
+}
+/* GST input */
+.invoice-items-table .gst-input {
+  width: 80px;
+  text-align: center;
+}
+/* GST amount - calculated field */
+.invoice-items-table .gst-amount-input {
+  width: 120px;
+  text-align: right;
+  background-color: #f8f9fa;
+  cursor: not-allowed;
+}
 
 .table-input {
   width: 100%;
@@ -630,29 +699,62 @@
 
 /* Totals Summary */
 .totals-summary {
-  background: #f8f9fa;
-  padding: 16px;
+  width: 100%;
+  max-width: 420px;
+  margin-left: auto;
+  margin-top: 20px;
+  padding: 18px 20px;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  margin: 16px 0;
+  background: #ffffff;
+}
+
+.totals-summary .summary-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.totals-summary .summary-line span:last-child {
+  font-weight: 500;
+  color: #111827;
+}
+
+.totals-summary .summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 2px solid #e5e7eb;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+.totals-summary .summary-total span:last-child {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.gst-type-field {
   width: 100%;
 }
 
-.summary-line {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  color: #666;
+.gst-type-field .form-select {
+  width: 100%;
 }
 
-.summary-total {
-  display: flex;
-  justify-content: space-between;
-  font-weight: 600;
-  font-size: 16px;
-  color: #333;
-  border-top: 1px solid #ddd;
-  padding-top: 8px;
-  margin-top: 8px;
+.gst-summary-line {
+  font-weight: 500;
+}
+
+.gst-total-line {
+  padding-top: 8px !important;
+  margin-top: 5px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .generate-invoice-btn {
@@ -1042,6 +1144,7 @@ body {
     padding: 6px;
   }
 }
+
 
 /* Ensure proper alignment for number inputs */
 .table-input[type="number"] {

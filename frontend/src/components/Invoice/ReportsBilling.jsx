@@ -49,11 +49,14 @@ const ReportsBilling = () => {
     remarks: "",
     unitPrice: "",
     quantity: "",
-    amount: ""
+    amount: "",
+    gstPercent: "",
+    gstAmount: ""
   }]);
   const [invoiceDate, setInvoiceDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [taxPercent, setTaxPercent] = useState('');
+  const [gstType, setGstType] = useState('NONE');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [showItemsTable, setShowItemsTable] = useState(false);
@@ -460,10 +463,13 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
           remarks: item.remarks || "",
           unitPrice: Number(item.unitPrice),
           quantity: Number(item.quantity),
+          gstPercent: Number(item.gstPercent) || 0,
+          gstAmount: Number(item.gstAmount) || 0,
+          amount: Number(item.amount) || 0
         })),
         invoiceDate,
         dueDate: dueDate || null,
-        taxPercent: Number(taxPercent) || 0,
+        gstType: gstType || "NONE",
         notes: notes || '',
         currency: currency,
       };
@@ -499,7 +505,9 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
       remarks: "",
       unitPrice: "",
       quantity: "",
-      amount: ""
+      amount: "",
+      gstPercent: "",
+      gstAmount: ""
     }]);
     setSelectedCustomer('');
     setNotes("");
@@ -657,21 +665,37 @@ const filteredDisabledInvoices = getFilteredInvoices(getDisabledInvoicesList());
 
   // Handle item changes with auto-calculation
   const handleItemChange = (index, field, value) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
 
-    // Auto-calculate amount when unitPrice or quantity changes
-    if (field === 'unitPrice' || field === 'quantity') {
-      const unitPrice = parseFloat(newItems[index].unitPrice) || 0;
-      const quantity = parseFloat(newItems[index].quantity) || 0;
-      newItems[index].amount = (unitPrice * quantity).toFixed(2);
-    }
+    const newItems = [...items];
+
+    newItems[index] = {
+      ...newItems[index],
+      [field]: value
+    };
+
+    const unitPrice =
+      parseFloat(newItems[index].unitPrice) || 0;
+
+    const quantity =
+      parseFloat(newItems[index].quantity) || 0;
+
+    const gstPercent =
+      parseFloat(newItems[index].gstPercent) || 0;
+
+    // Taxable amount
+    const amount = unitPrice * quantity;
+
+    // GST amount
+    const gstAmount = (amount * gstPercent) / 100;
+
+    newItems[index].amount = amount.toFixed(2);
+    newItems[index].gstAmount = gstAmount.toFixed(2);
 
     setItems(newItems);
   };
 
   // Total calculation using service function with new fields
-  const totals = calculateInvoiceTotals(items, taxPercent, currency);
+  const totals = calculateInvoiceTotals(items, gstType, currency);
 
   // Open invoice modal
   const openInvoiceModal = () => {
@@ -939,10 +963,13 @@ const updateLocalInvoiceState = (invoiceId) => {
           remarks: item.remarks || "",
           unitPrice: Number(item.unitPrice),
           quantity: Number(item.quantity),
+          gstPercent: Number(item.gstPercent) || 0,
+          gstAmount: Number(item.gstAmount) || 0,
+          amount: Number(item.amount) || 0
         })),
         invoiceDate,
         dueDate: dueDate || null, // Allow null if no due date
-        taxPercent: Number(taxPercent) || 0,
+        gstType: gstType || "NONE",
         notes: notes || '',
         currency: currency,
       };
@@ -1163,8 +1190,8 @@ const updateLocalInvoiceState = (invoiceId) => {
                   <th className="column-invoice">Invoice Number</th>
                   <th className="column-customer">Customer</th>
                   <th className="column-date">Date</th>
-                  <th className="column-status">Status</th>
-                  <th className="column-amount">Amount</th>
+                    <th className="column-status">Status</th>
+                    <th className="column-amount">Amount</th>
                   <th className="column-actions">Actions</th>
                 </tr>
               </thead>
@@ -1492,19 +1519,23 @@ const updateLocalInvoiceState = (invoiceId) => {
                   </div>
 
                   <div className="form-field">
-                    <label>Tax (%)</label>
-                    <input
-                      type="number"
-                      className="form-input"
-                      value={taxPercent}
-                      onChange={(e) => setTaxPercent(e.target.value)}
-                      placeholder="e.g. 10"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                    />
+                    <label>GST Type</label>
+
+                    <select
+                      className="form-select"
+                      value={gstType}
+                      onChange={(e) => setGstType(e.target.value)}
+                    >
+                      <option value="NONE">No GST</option>
+                      <option value="INTRA_STATE">
+                        CGST + SGST
+                      </option>
+                      <option value="INTER_STATE">
+                        IGST
+                      </option>
+                    </select>
                   </div>
-                 
+                                  
                   {/* Items Section with new fields */}
                   <div className="invoice-items-section">
                     <div className="section-header">
@@ -1524,6 +1555,8 @@ const updateLocalInvoiceState = (invoiceId) => {
                               <th className="column-unit-price">Unit Price ({currencySymbols[currency]})</th>
                               <th className="column-quantity">Quantity</th>
                               <th className="column-amount">Amount ({currencySymbols[currency]})</th>
+                              <th className="column-gst">GST %</th>
+                              <th className="column-gst-amount">GST Amount</th>
                               <th className="column-action">Action</th>
                             </tr>
                           </thead>
@@ -1581,6 +1614,32 @@ const updateLocalInvoiceState = (invoiceId) => {
                                     readOnly
                                   />
                                 </td>
+                                <td data-label="GST %">
+                                  <input
+                                    type="number"
+                                    placeholder="18"
+                                    value={item.gstPercent}
+                                    onChange={(e) =>
+                                      handleItemChange(
+                                        index,
+                                        "gstPercent",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="table-input"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                  />
+                                </td>
+                                <td data-label="GST Amount">
+                                  <input
+                                    type="text"
+                                    value={item.gstAmount || '0.00'}
+                                    className="table-input amount-input"
+                                    readOnly
+                                  />
+                                </td>
                                 <td data-label="Action">
                                   {items.length > 1 && (
                                     <button
@@ -1600,24 +1659,65 @@ const updateLocalInvoiceState = (invoiceId) => {
                   </div>
 
                   {/* Totals Summary */}
-                  {showItemsTable && (
-                    <div className="totals-summary">
-                      <div className="summary-line">
-                        <span>Subtotal:</span>
-                        <span>{currencySymbols[currency]}{totals.formattedSubtotal}</span>
-                      </div>
-                      {taxPercent > 0 && (
+                    {showItemsTable && (
+                      <div className="totals-summary">
+
                         <div className="summary-line">
-                          <span>Tax ({taxPercent}%):</span>
-                          <span>{currencySymbols[currency]}{totals.formattedTaxAmount}</span>
+                          <span>Total Without GST:</span>
+                          <span>
+                            {currencySymbols[currency]}
+                            {totals.formattedSubtotal}
+                          </span>
                         </div>
-                      )}
-                      <div className="summary-total">
-                        <span>Grand Total:</span>
-                        <span>{currencySymbols[currency]}{totals.formattedTotal}</span>
+
+                        {gstType === "INTRA_STATE" && (
+                          <>
+                            <div className="summary-line">
+                              <span>CGST:</span>
+                              <span>
+                                {currencySymbols[currency]}
+                                {totals.formattedCgst}
+                              </span>
+                            </div>
+
+                            <div className="summary-line">
+                              <span>SGST:</span>
+                              <span>
+                                {currencySymbols[currency]}
+                                {totals.formattedSgst}
+                              </span>
+                            </div>
+                          </>
+                        )}
+
+                        {gstType === "INTER_STATE" && (
+                          <div className="summary-line">
+                            <span>IGST:</span>
+                            <span>
+                              {currencySymbols[currency]}
+                              {totals.formattedIgst}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="summary-line">
+                          <span>Total GST:</span>
+                          <span>
+                            {currencySymbols[currency]}
+                            {totals.formattedGst}
+                          </span>
+                        </div>
+
+                        <div className="summary-total">
+                          <span>Grand Total:</span>
+                          <span>
+                            {currencySymbols[currency]}
+                            {totals.formattedTotal}
+                          </span>
+                        </div>
+
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Notes */}
                   <div className="form-field">
@@ -1767,21 +1867,24 @@ const updateLocalInvoiceState = (invoiceId) => {
                       ))}
                     </select>
                   </div>
-
                   <div className="form-field">
-                    <label>Tax (%)</label>
-                    <input
-                      type="number"
-                      className="form-input"
-                      value={taxPercent}
-                      onChange={(e) => setTaxPercent(e.target.value)}
-                      placeholder="e.g. 10"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                    />
-                  </div>
-                 
+                  <label>GST Type</label>
+
+                  <select
+                    className="form-select"
+                    value={gstType}
+                    onChange={(e) => setGstType(e.target.value)}
+                  >
+                    <option value="NONE">No GST</option>
+                    <option value="INTRA_STATE">
+                      CGST + SGST
+                    </option>
+                    <option value="INTER_STATE">
+                      IGST
+                    </option>
+                  </select>
+                </div>
+    
                   {/* Items Section with new fields */}
                   <div className="invoice-items-section">
                     <div className="section-header">
@@ -1801,6 +1904,8 @@ const updateLocalInvoiceState = (invoiceId) => {
                               <th className="column-unit-price">Unit Price ({currencySymbols[currency]})</th>
                               <th className="column-quantity">Quantity</th>
                               <th className="column-amount">Amount ({currencySymbols[currency]})</th>
+                              <th className="column-gst">GST %</th>
+                              <th className="column-gst-amount">GST Amount</th>
                               <th className="column-action">Action</th>
                             </tr>
                           </thead>
@@ -1858,6 +1963,26 @@ const updateLocalInvoiceState = (invoiceId) => {
                                     readOnly
                                   />
                                 </td>
+                                <td data-label="GST %">
+                                  <input
+                                    type="number"
+                                    placeholder="18"
+                                    value={item.gstPercent}
+                                    onChange={(e) => handleItemChange(index, "gstPercent", e.target.value)}
+                                    className="table-input"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                  />
+                                </td>
+                                <td data-label="GST Amount">
+                                  <input
+                                    type="text"
+                                    value={item.gstAmount || '0.00'}
+                                    className="table-input amount-input"
+                                    readOnly
+                                  />
+                                </td>
                                 <td data-label="Action">
                                   {items.length > 1 && (
                                     <button
@@ -1877,24 +2002,65 @@ const updateLocalInvoiceState = (invoiceId) => {
                   </div>
 
                   {/* Totals Summary */}
-                  {showItemsTable && (
-                    <div className="totals-summary">
-                      <div className="summary-line">
-                        <span>Subtotal:</span>
-                        <span>{currencySymbols[currency]}{totals.formattedSubtotal}</span>
-                      </div>
-                      {taxPercent > 0 && (
+                    {showItemsTable && (
+                      <div className="totals-summary">
+
                         <div className="summary-line">
-                          <span>Tax ({taxPercent}%):</span>
-                          <span>{currencySymbols[currency]}{totals.formattedTaxAmount}</span>
+                          <span>Total Without GST:</span>
+                          <span>
+                            {currencySymbols[currency]}
+                            {totals.formattedSubtotal}
+                          </span>
                         </div>
-                      )}
-                      <div className="summary-total">
-                        <span>Grand Total:</span>
-                        <span>{currencySymbols[currency]}{totals.formattedTotal}</span>
+
+                        {gstType === "INTRA_STATE" && (
+                          <>
+                            <div className="summary-line">
+                              <span>CGST:</span>
+                              <span>
+                                {currencySymbols[currency]}
+                                {totals.formattedCgst}
+                              </span>
+                            </div>
+
+                            <div className="summary-line">
+                              <span>SGST:</span>
+                              <span>
+                                {currencySymbols[currency]}
+                                {totals.formattedSgst}
+                              </span>
+                            </div>
+                          </>
+                        )}
+
+                        {gstType === "INTER_STATE" && (
+                          <div className="summary-line">
+                            <span>IGST:</span>
+                            <span>
+                              {currencySymbols[currency]}
+                              {totals.formattedIgst}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="summary-line">
+                          <span>Total GST:</span>
+                          <span>
+                            {currencySymbols[currency]}
+                            {totals.formattedGst}
+                          </span>
+                        </div>
+
+                        <div className="summary-total">
+                          <span>Grand Total:</span>
+                          <span>
+                            {currencySymbols[currency]}
+                            {totals.formattedTotal}
+                          </span>
+                        </div>
+
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Notes */}
                   <div className="form-field">
