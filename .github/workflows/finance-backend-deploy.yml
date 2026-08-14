@@ -1,41 +1,35 @@
-kind: pipeline
-type: ssh
-name: finance-backend-deploy
- 
-server:
-  host:
-    from_secret: ssh_host
-  user:
-    from_secret: ssh_user
-  password:
-    from_secret: ssh_password
- 
-steps:
- 
-  - name: update-code
-    commands:
-      - cd /home/ec2-user/backend
-      - echo "Fetching latest code..."
-      - git fetch origin
-      - git reset --hard origin/main
- 
-  - name: install-dependencies
-    commands:
-      - cd /home/ec2-user/backend
-      - npm ci --omit=dev
- 
-  - name: restart-backend
-    commands:
-      - cd /home/ec2-user/backend
-      - pm2 restart finance-backend --update-env
-      - sleep 3
- 
-  - name: health-check
-    commands:
-      - curl -f http://127.0.0.1:5003/health || exit 1
-      - echo "Backend health check passed."
- 
-  - name: deployment-complete
-    commands:
-      - pm2 status
-      - echo "Finance backend deployment successful."
+name: Finance Backend Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            cd /home/ec2-user/backend
+
+            echo "Pulling latest backend code..."
+            git fetch origin
+            git reset --hard origin/main
+
+            echo "Installing dependencies..."
+            npm ci
+
+            echo "Restarting backend..."
+            pm2 restart finance-backend --update-env
+
+            echo "Backend status:"
+            pm2 status

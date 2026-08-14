@@ -9,7 +9,7 @@ const router = express.Router();
 /* ==========================
    GET Company Info
 ========================== */
-router.get("/", authenticateToken, requireRole('admin'), getCompany);
+router.get("/", authenticateToken, requireRole('admin'), getCompany); 
  
 /* ==========================
    PUT Company Info (Update or Create)
