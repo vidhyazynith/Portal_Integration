@@ -11,15 +11,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy Backend to EC2
+      - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          command_timeout: 10m
-
+          command_timeout: 15m
           script: |
             set -e
 
@@ -27,45 +26,121 @@ jobs:
             echo "Finance Backend Deployment"
             echo "======================================"
 
-            echo "=== Server information ==="
-            whoami
-            hostname
+            # --------------------------------------
+            # Deployment lock
+            # --------------------------------------
+            LOCK_FILE="$HOME/finance-portal-deploy.lock"
+
+            echo "=== Acquiring deployment lock ==="
+
+            if [ -f "$LOCK_FILE" ]; then
+              LOCK_PID=$(cat "$LOCK_FILE" 2>/dev/null || true)
+
+              if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
+                echo "Another Finance deployment is running with PID $LOCK_PID"
+                exit 1
+              else
+                echo "Removing stale deployment lock"
+                rm -f "$LOCK_FILE"
+              fi
+            fi
+
+            echo $$ > "$LOCK_FILE"
+
+            cleanup() {
+              rm -f "$LOCK_FILE"
+            }
+
+            trap cleanup EXIT
+
+            # --------------------------------------
+            # Node
+            # --------------------------------------
+            echo "=== Loading NVM ==="
+
+            export NVM_DIR="$HOME/.nvm"
+
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              source "$NVM_DIR/nvm.sh"
+            fi
+
+            nvm use 20
+
+            echo "Node:"
+            node -v
+
+            echo "NPM:"
+            npm -v
+
+            # --------------------------------------
+            # Repository
+            # --------------------------------------
+            echo "=== Going to repository ==="
+
+            cd "$HOME/Portals/Portal_Integration"
+
+            echo "=== Repository ==="
             pwd
 
-            echo "=== Going to backend directory ==="
-            cd /home/ec2-user/Portals/Portal_Integration/backend
+            # --------------------------------------
+            # Remove stale Git locks
+            # --------------------------------------
+            echo "=== Checking Git locks ==="
 
-            echo "=== Pulling latest backend code ==="
-            git fetch origin
+            rm -f .git/index.lock
+            rm -f .git/refs/remotes/origin/main.lock
+
+            # --------------------------------------
+            # Update repository
+            # --------------------------------------
+            echo "=== Fetching latest backend code ==="
+
+            git fetch --prune origin main
+
+            echo "=== Resetting to latest main ==="
+
             git reset --hard origin/main
 
-            echo "=== Checking Node.js ==="
-            node --version
-            npm --version
+            echo "=== Current commit ==="
+
+            git log -1 --oneline
+
+            # --------------------------------------
+            # Backend
+            # --------------------------------------
+            cd "$HOME/Portals/Portal_Integration/backend"
 
             echo "=== Installing dependencies ==="
+
             npm ci
 
+            # --------------------------------------
+            # PM2
+            # --------------------------------------
             echo "=== Checking PM2 ==="
+
             pm2 status
 
             echo "=== Restarting Finance backend ==="
+
             pm2 restart finance-backend --update-env
 
             echo "=== Saving PM2 process list ==="
+
             pm2 save
 
-            echo "=== Waiting for backend ==="
-            sleep 3
+            # --------------------------------------
+            # Verify
+            # --------------------------------------
+            sleep 5
 
             echo "=== Backend status ==="
-            pm2 status
+
+            pm2 status finance-backend
 
             echo "=== Backend logs ==="
-            pm2 logs finance-backend --lines 20 --nostream
 
-            echo "=== Testing backend locally ==="
-            curl -f http://127.0.0.1:5003/ || true
+            pm2 logs finance-backend --lines 20 --nostream || true
 
             echo "======================================"
             echo "Finance backend deployment completed"
