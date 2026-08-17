@@ -1,5 +1,5 @@
 import Company from '../models/Company.js';
-import cloudinary from '../config/cloudinary.js';
+import { uploadToS3, deleteFromS3 } from '../config/s3.js';
  
 //get company info
 export const getCompany = async (req, res) => {
@@ -133,16 +133,16 @@ export const uploadImage = async (req, res) => {
       });
     }
 
-    // Verify Cloudinary configuration
-    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-      console.error('Missing Cloudinary configuration:', {
-        CLOUDINARY_CLOUD_NAME: !!process.env.CLOUDINARY_CLOUD_NAME,
-        CLOUDINARY_API_KEY: !!process.env.CLOUDINARY_API_KEY,
-        CLOUDINARY_API_SECRET: !!process.env.CLOUDINARY_API_SECRET
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.AWS_BUCKET_NAME || !process.env.AWS_REGION) {
+      console.error('Missing AWS S3 configuration:', {
+        AWS_ACCESS_KEY_ID: !!process.env.AWS_ACCESS_KEY_ID,
+        AWS_SECRET_ACCESS_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
+        AWS_BUCKET_NAME: !!process.env.AWS_BUCKET_NAME,
+        AWS_REGION: !!process.env.AWS_REGION
       });
       return res.status(500).json({
         success: false,
-        message: "Server configuration error: Missing Cloudinary credentials"
+        message: "Server configuration error: Missing Amazon S3 credentials"
       });
     }
  
@@ -151,52 +151,32 @@ export const uploadImage = async (req, res) => {
       company = await Company.create({});
     }
  
-    // Delete old image from Cloudinary if exists
     if (company[type]?.public_id) {
       try {
-        await cloudinary.uploader.destroy(company[type].public_id);
+        await deleteFromS3({ public_id: company[type].public_id });
         console.log(`Deleted old ${type} image: ${company[type].public_id}`);
       } catch (deleteError) {
         console.warn(`Could not delete old ${type} image:`, deleteError.message);
-        // Continue with upload even if deletion fails
       }
     }
  
-    // Upload new image to Cloudinary using buffer
-    console.log('Uploading to Cloudinary using buffer...');
-   
-    const uploadOptions = {
+    console.log('Uploading image to Amazon S3...');
+    const result = await uploadToS3({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      mimetype: req.file.mimetype,
       folder: 'company-assets',
-      resource_type: 'image',
-      timeout: 30000 // 30 seconds timeout
-    };
- 
-    // Add transformations based on image type
-    if (type === 'logo') {
-      uploadOptions.transformation = [
-        { width: 300, height: 300, crop: 'limit', quality: 'auto' }
-      ];
-    } else {
-      uploadOptions.transformation = [
-        { width: 200, height: 100, crop: 'limit', quality: 'auto' }
-      ];
-    }
- 
-    // Convert buffer to base64 and upload to Cloudinary
-    const result = await cloudinary.uploader.upload(
-      `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,
-      uploadOptions
-    );
+      type,
+    });
    
-    console.log('Cloudinary upload successful:', {
+    console.log('Amazon S3 upload successful:', {
       public_id: result.public_id,
-      url: result.secure_url
+      url: result.url
     });
  
-    // Update company with new image
     company[type] = {
       public_id: result.public_id,
-      url: result.secure_url
+      url: result.url
     };
  
     await company.save();
@@ -213,14 +193,12 @@ export const uploadImage = async (req, res) => {
     let errorMessage = "Error uploading image";
     if (error.message.includes('timeout')) {
       errorMessage = "Upload timeout. Please try again.";
-    } else if (error.message.includes('credentials') || error.message.includes('Invalid credentials') || error.message.includes('Authentication failed')) {
-      errorMessage = "Cloudinary authentication failed. Please verify API credentials in environment variables.";
-    } else if (error.http_code === 413) {
-      errorMessage = "File too large. Please select a smaller image.";
-    } else if (error.message.includes('Upload preset')) {
-      errorMessage = "Cloudinary upload preset error. Please check configuration.";
-    } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
-      errorMessage = "Connection timeout to Cloudinary. Please check your internet connection.";
+    } else if (error.message.includes('credentials') || error.message.includes('Invalid credentials') || error.message.includes('AccessDenied')) {
+      errorMessage = "Amazon S3 authentication failed. Please verify AWS credentials in environment variables.";
+    } else if (error.message.includes('NoSuchBucket') || error.message.includes('bucket')) {
+      errorMessage = "Amazon S3 bucket is not configured correctly.";
+    } else if (error.name === 'RequestTimeoutError' || error.message.includes('ETIMEDOUT')) {
+      errorMessage = "Connection timeout to Amazon S3. Please check your network connection.";
     }
  
     res.status(500).json({
@@ -254,9 +232,8 @@ export const deleteImage = async (req, res) => {
       });
     }
  
-    // Delete image from Cloudinary if exists
     if (company[type]?.public_id) {
-      await cloudinary.uploader.destroy(company[type].public_id);
+      await deleteFromS3({ public_id: company[type].public_id });
     }
  
     // Remove image reference from company

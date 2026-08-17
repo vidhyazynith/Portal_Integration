@@ -8,6 +8,7 @@ import Transaction from '../models/Transaction.js';
 import pkg from "number-to-words";
 import axios from "axios";
 import ExcelJS from "exceljs";
+import { uploadToS3, deleteFromS3 } from '../config/s3.js';
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -124,54 +125,25 @@ const createTransactionForPaidInvoice = async (invoice, transactionNumber) => {
     let attachment = null;
     if (invoice.paymentDetails?.proofFile) {
       const proofFile = invoice.paymentDetails.proofFile;
-      
+
       console.log('📁 Payment proof file found:', {
         fileName: proofFile.fileName,
         filePath: proofFile.filePath,
         fileUrl: proofFile.fileUrl,
         size: proofFile.size
       });
-      
-      try {
-        // Read the payment proof file from disk
-        if (fs.existsSync(proofFile.filePath)) {
-          const fileBuffer = fs.readFileSync(proofFile.filePath);
-          
-          console.log('✅ File read successfully, size:', fileBuffer.length, 'bytes');
-          
-          attachment = {
-            filename: proofFile.fileName,
-            originalName: proofFile.originalName,
-            mimeType: proofFile.mimeType,
-            size: proofFile.size,
-            data: fileBuffer,
-            fileUrl: proofFile.fileUrl // Store the URL for direct access
-          };
-          
-          console.log(`📎 Payment proof file attached: ${proofFile.originalName}`);
-        } else {
-          console.log('❌ File does not exist at path:', proofFile.filePath);
-          // Create attachment with URL only
-          attachment = {
-            filename: proofFile.fileName,
-            originalName: proofFile.originalName,
-            mimeType: proofFile.mimeType,
-            size: proofFile.size,
-            data: null,
-            fileUrl: proofFile.fileUrl
-          };
-        }
-      } catch (fileError) {
-        console.error('❌ Error reading file:', fileError);
-        // Create attachment with URL only as fallback
-        attachment = {
-          filename: proofFile.fileName,
-          originalName: proofFile.originalName,
-          mimeType: proofFile.mimeType,
-          size: proofFile.size,
-          data: null,
-          fileUrl: proofFile.fileUrl
-        };
+
+      attachment = {
+        filename: proofFile.fileName,
+        originalName: proofFile.originalName,
+        mimeType: proofFile.mimeType,
+        size: proofFile.size,
+        data: null,
+        fileUrl: proofFile.fileUrl || null
+      };
+
+      if (proofFile.fileUrl) {
+        console.log(`📎 Payment proof file attached: ${proofFile.originalName}`);
       }
     } else {
       console.log('❌ No payment proof file found in invoice');
@@ -432,38 +404,39 @@ export const getPaymentProof = async (req, res) => {
   try {
     const { filename } = req.params;
     const filePath = path.join(uploadsDir, filename);
-   
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: "File not found" });
+
+    if (fs.existsSync(filePath)) {
+      const ext = path.extname(filename).toLowerCase();
+      const mimeTypes = {
+        '.pdf': 'application/pdf',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      };
+
+      const mimeType = mimeTypes[ext] || 'application/octet-stream';
+
+      if (['.pdf', '.jpg', '.jpeg', '.png'].includes(ext)) {
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      } else {
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      }
+
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+      return;
     }
 
-    // Set appropriate headers based on file type
-    const ext = path.extname(filename).toLowerCase();
-    const mimeTypes = {
-      '.pdf': 'application/pdf',
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.doc': 'application/msword',
-      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    };
-
-    const mimeType = mimeTypes[ext] || 'application/octet-stream';
-   
-    // For images and PDFs, display in browser; for others, download
-    if (['.pdf', '.jpg', '.jpeg', '.png'].includes(ext)) {
-      res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-    } else {
-      res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    const invoice = await Invoice.findOne({ 'paymentDetails.proofFile.fileName': filename }).lean();
+    if (invoice?.paymentDetails?.proofFile?.fileUrl) {
+      return res.redirect(invoice.paymentDetails.proofFile.fileUrl);
     }
 
-    // Stream the file
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
-
+    return res.status(404).json({ message: "File not found" });
   } catch (error) {
     console.error("Error serving payment proof:", error);
     res.status(500).json({ message: "Error serving file" });
@@ -4735,11 +4708,11 @@ export const permanentDeleteInvoice = async (req, res) => {
       });
     }
 
-    // Delete associated payment proof file if exists
-    if (invoice.paymentDetails?.proofFile?.filePath) {
+    if (invoice.paymentDetails?.proofFile?.fileName || invoice.paymentDetails?.proofFile?.fileUrl) {
       try {
-        if (fs.existsSync(invoice.paymentDetails.proofFile.filePath)) {
-          fs.unlinkSync(invoice.paymentDetails.proofFile.filePath);
+        const objectKey = invoice.paymentDetails.proofFile.fileName;
+        if (objectKey && !objectKey.startsWith('http')) {
+          await deleteFromS3({ key: objectKey });
         }
       } catch (fileError) {
         console.error("Error deleting payment proof file:", fileError);
@@ -4793,18 +4766,19 @@ export const verifyPayment = async (req, res) => {
       });
     }
 
-    // Generate unique filename
     const fileExtension = path.extname(transactionProof.originalname);
     const uniqueFileName = `payment-proof-${invoiceId}-${Date.now()}${fileExtension}`;
-    const filePath = path.join(uploadsDir, uniqueFileName);
 
-    // Save file to server
-    fs.writeFileSync(filePath, transactionProof.buffer);
+    const s3Object = await uploadToS3({
+      buffer: transactionProof.buffer,
+      originalName: uniqueFileName,
+      mimetype: transactionProof.mimetype,
+      folder: 'payment-proofs',
+      type: 'invoice-proof'
+    });
 
-    // Construct file URL
-    const fileUrl = `/api/billing/payment-proofs/${uniqueFileName}`;
+    const fileUrl = s3Object.url;
 
-    // Find and update invoice status with file details
     const updatedInvoice = await Invoice.findByIdAndUpdate(
       invoiceId,
       {
@@ -4817,8 +4791,8 @@ export const verifyPayment = async (req, res) => {
             mimeType: transactionProof.mimetype,
             size: transactionProof.size,
             uploadedAt: new Date(),
-            fileName: uniqueFileName,
-            filePath: filePath,
+            fileName: s3Object.key,
+            filePath: s3Object.key,
             fileUrl: fileUrl
           }
         }
@@ -4827,10 +4801,7 @@ export const verifyPayment = async (req, res) => {
     ).populate("customerId");
 
     if (!updatedInvoice) {
-      // Clean up uploaded file if invoice not found
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+      await deleteFromS3({ key: s3Object.key }).catch(() => {});
       return res.status(404).json({ message: "Invoice not found" });
     }
 
