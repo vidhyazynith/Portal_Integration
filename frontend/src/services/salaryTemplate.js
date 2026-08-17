@@ -11,7 +11,7 @@ export const salaryTemplateService = {
   getSalaryTemplateById: async (id) => {
     const response = await api.get(`/salary-templates/${id}`);
     return response.data;
-  },
+  }, 
 
   // Get salary template by designation
   getSalaryTemplateByDesignation: async (designation) => {
