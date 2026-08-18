@@ -141,10 +141,10 @@ router.get('/payslip/:id/download', authenticateToken, async (req, res) => {
 
     // Create PDF
     const doc = new PDFDocument();
-    const filename = `payslip-${payslip.employeeId}-${payslip.month}-${payslip.year}.pdf`;
+    const filename = `${payslip.employeeId}_${payslip.month}_${payslip.year}.pdf`;
     
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
     
     doc.pipe(res);
     
