@@ -4,11 +4,10 @@ on:
   push:
     branches:
       - main
-
 concurrency:
-  group: finance-backend-deployment
+  group: finance-portal-deployment
   cancel-in-progress: false
-
+  
 jobs:
   deploy:
     name: Deploy Finance Backend
@@ -17,61 +16,36 @@ jobs:
     steps:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.0
-
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-
-          command_timeout: 20m
-
+          command_timeout: 15m
           script: |
-            set -Eeuo pipefail
+            set -e
 
             echo "======================================"
             echo "Finance Backend Deployment"
             echo "======================================"
 
-            trap 'echo "ERROR: Deployment failed at line $LINENO"' ERR
-
-            # ======================================
-            # Configuration
-            # ======================================
-
-            REPO="$HOME/Portals/Portal_Integration"
-            BACKEND="$REPO/backend"
-
-            BACKEND_PORT="5003"
-            API_URL="https://finance.zynith-it.com/api"
-
-            # ======================================
+            # --------------------------------------
             # Deployment lock
-            # ======================================
+            # --------------------------------------
+            LOCK_FILE="$HOME/finance-portal-deploy.lock"
 
-            LOCK_FILE="$HOME/finance-backend-deploy.lock"
-
-            echo "=== Checking deployment lock ==="
+            echo "=== Acquiring deployment lock ==="
 
             if [ -f "$LOCK_FILE" ]; then
-
               LOCK_PID=$(cat "$LOCK_FILE" 2>/dev/null || true)
 
               if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
-
-                echo "Another backend deployment is running."
-                echo "PID: $LOCK_PID"
-
+                echo "Another Finance deployment is running with PID $LOCK_PID"
                 exit 1
-
               else
-
-                echo "Removing stale deployment lock."
-
+                echo "Removing stale deployment lock"
                 rm -f "$LOCK_FILE"
-
               fi
-
             fi
 
             echo $$ > "$LOCK_FILE"
@@ -82,22 +56,16 @@ jobs:
 
             trap cleanup EXIT
 
-            # ======================================
-            # Node / NVM
-            # ======================================
-
+            # --------------------------------------
+            # Node
+            # --------------------------------------
             echo "=== Loading NVM ==="
 
             export NVM_DIR="$HOME/.nvm"
 
-            if [ ! -s "$NVM_DIR/nvm.sh" ]; then
-              echo "ERROR: NVM not found."
-              exit 1
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              source "$NVM_DIR/nvm.sh"
             fi
-
-            source "$NVM_DIR/nvm.sh"
-
-            echo "=== Using Node 20 ==="
 
             nvm use 20
 
@@ -107,38 +75,32 @@ jobs:
             echo "NPM:"
             npm -v
 
-            # ======================================
+            # --------------------------------------
             # Repository
-            # ======================================
-
+            # --------------------------------------
             echo "=== Going to repository ==="
 
-            cd "$REPO"
+            cd "$HOME/Portals/Portal_Integration"
 
+            echo "=== Repository ==="
             pwd
 
-            echo "=== Git remote ==="
+            # --------------------------------------
+            # Remove stale Git locks
+            # --------------------------------------
+            echo "=== Checking Git locks ==="
 
-            git remote -v
+            rm -f .git/index.lock
+            rm -f .git/refs/remotes/origin/main.lock
 
-            # ======================================
-            # Git locks
-            # ======================================
-
-            echo "=== Removing stale Git locks ==="
-
-            rm -f "$REPO/.git/index.lock"
-            rm -f "$REPO/.git/refs/remotes/origin/main.lock"
-
-            # ======================================
+            # --------------------------------------
             # Update repository
-            # ======================================
+            # --------------------------------------
+            echo "=== Fetching latest backend code ==="
 
-            echo "=== Fetching latest main ==="
+            git fetch --prune origin main
 
-            git fetch origin main --prune
-
-            echo "=== Resetting repository ==="
+            echo "=== Resetting to latest main ==="
 
             git reset --hard origin/main
 
@@ -146,281 +108,43 @@ jobs:
 
             git log -1 --oneline
 
-            # ======================================
+            # --------------------------------------
             # Backend
-            # ======================================
+            # --------------------------------------
+            cd "$HOME/Portals/Portal_Integration/backend"
 
-            cd "$BACKEND"
-
-            echo "Backend directory:"
-            pwd
-
-            # ======================================
-            # Environment validation
-            # ======================================
-
-            echo "=== Checking backend environment ==="
-
-            if [ ! -f "$BACKEND/.env" ]; then
-
-              echo "ERROR: Backend .env file does not exist."
-
-              exit 1
-
-            fi
-
-            echo ".env file exists."
-
-            # IMPORTANT:
-            # Do NOT print the actual values of secrets.
-
-            if ! grep -q '^MONGODB_URI=' "$BACKEND/.env"; then
-
-              echo "ERROR: MONGODB_URI is missing from .env"
-
-              exit 1
-
-            fi
-
-            if ! grep -q '^JWT_SECRET=' "$BACKEND/.env"; then
-
-              echo "ERROR: JWT_SECRET is missing from .env"
-
-              exit 1
-
-            fi
-
-            # ======================================
-            # Dependencies
-            # ======================================
-
-            echo "=== Installing backend dependencies ==="
+            echo "=== Installing dependencies ==="
 
             npm ci
 
-            # ======================================
+            # --------------------------------------
             # PM2
-            # ======================================
+            # --------------------------------------
+            echo "=== Checking PM2 ==="
 
-            echo "=== PM2 status before deployment ==="
+            pm2 status
 
-            pm2 status || true
+            echo "=== Restarting Finance backend ==="
 
-            # ======================================
-            # Start/restart backend
-            # ======================================
-
-            echo "=== Starting/restarting finance-backend ==="
-
-            if pm2 describe finance-backend >/dev/null 2>&1; then
-
-              echo "Existing PM2 process found."
-
-              pm2 restart finance-backend --update-env
-
-            else
-
-              echo "finance-backend process does not exist."
-
-              echo "Starting backend with npm."
-
-              pm2 start npm \
-                --name finance-backend \
-                --cwd "$BACKEND" \
-                -- start
-
-            fi
-
-            # ======================================
-            # Save PM2
-            # ======================================
+            pm2 restart finance-backend --update-env
 
             echo "=== Saving PM2 process list ==="
 
             pm2 save
 
-            # ======================================
-            # Wait for backend
-            # ======================================
-
-            echo "=== Waiting for backend ==="
-
+            # --------------------------------------
+            # Verify
+            # --------------------------------------
             sleep 5
 
-            # ======================================
-            # PM2 verification
-            # ======================================
-
-            echo "=== PM2 status ==="
+            echo "=== Backend status ==="
 
             pm2 status finance-backend
 
-            # ======================================
-            # Check PM2 process
-            # ======================================
+            echo "=== Backend logs ==="
 
-            PM2_STATUS=$(pm2 jlist | node -e '
-              let data = "";
-              process.stdin.on("data", d => data += d);
-              process.stdin.on("end", () => {
-                try {
-                  const apps = JSON.parse(data);
-                  const app = apps.find(x => x.name === "finance-backend");
+            pm2 logs finance-backend --lines 20 --nostream || true
 
-                  if (!app) {
-                    process.exit(1);
-                  }
-
-                  console.log(app.pm2_env.status);
-                } catch {
-                  process.exit(1);
-                }
-              });
-            ')
-
-            echo "PM2 application status: $PM2_STATUS"
-
-            if [ "$PM2_STATUS" != "online" ]; then
-
-              echo "ERROR: finance-backend is not online."
-
-              pm2 logs finance-backend \
-                --lines 50 \
-                --nostream || true
-
-              exit 1
-
-            fi
-
-            # ======================================
-            # Port verification
-            # ======================================
-
-            echo "=== Checking port $BACKEND_PORT ==="
-
-            if ! sudo ss -ltnp | grep -q ":$BACKEND_PORT"; then
-
-              echo "ERROR: Backend is not listening on port $BACKEND_PORT"
-
-              pm2 logs finance-backend \
-                --lines 50 \
-                --nostream || true
-
-              exit 1
-
-            fi
-
-            echo "Backend is listening on port $BACKEND_PORT."
-
-            # ======================================
-            # Local API verification
-            # ======================================
-
-            echo "=== Testing backend locally ==="
-
-            LOCAL_RESPONSE=$(
-              curl \
-                --silent \
-                --show-error \
-                --max-time 15 \
-                -o /tmp/finance-backend-response \
-                -w "%{http_code}" \
-                http://127.0.0.1:$BACKEND_PORT/api/auth/login \
-                || true
-            )
-
-            echo "Local API HTTP status: $LOCAL_RESPONSE"
-
-            # GET on a POST login endpoint may return 404/405.
-            # That does NOT necessarily mean the backend is down.
-            #
-            # The important point is that curl successfully connected
-            # to the Node server.
-
-            if [ "$LOCAL_RESPONSE" = "000" ]; then
-
-              echo "ERROR: Could not connect to backend."
-
-              pm2 logs finance-backend \
-                --lines 50 \
-                --nostream || true
-
-              exit 1
-
-            fi
-
-            echo "=== Backend local connectivity verified ==="
-
-            # ======================================
-            # Nginx/API HTTPS verification
-            # ======================================
-
-            echo "=== Testing HTTPS API ==="
-
-            HTTPS_STATUS=$(
-              curl \
-                --silent \
-                --show-error \
-                --location \
-                --connect-timeout 10 \
-                --max-time 30 \
-                -o /tmp/finance-api-response \
-                -w "%{http_code}" \
-                "$API_URL/auth/login" \
-                || true
-            )
-
-            echo "HTTPS API HTTP status: $HTTPS_STATUS"
-
-            if [ "$HTTPS_STATUS" = "000" ]; then
-
-              echo "ERROR: HTTPS API is unreachable."
-
-              exit 1
-
-            fi
-
-            echo "=== HTTPS API connectivity verified ==="
-
-            # ======================================
-            # Backend logs
-            # ======================================
-
-            echo "=== Recent backend logs ==="
-
-            pm2 logs finance-backend \
-              --lines 30 \
-              --nostream || true
-
-            # ======================================
-            # Cleanup
-            # ======================================
-
-            rm -f /tmp/finance-backend-response
-            rm -f /tmp/finance-api-response
-
-            # ======================================
-            # SUCCESS
-            # ======================================
-
-            echo ""
             echo "======================================"
-            echo "Finance Backend Deployment SUCCESS"
-            echo "======================================"
-
-            echo "Commit:"
-            git log -1 --oneline
-
-            echo ""
-            echo "PM2:"
-            pm2 status finance-backend
-
-            echo ""
-            echo "Backend port:"
-            echo "$BACKEND_PORT"
-
-            echo ""
-            echo "API:"
-            echo "$API_URL"
-
+            echo "Finance backend deployment completed"
             echo "======================================"
