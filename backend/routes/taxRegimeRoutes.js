@@ -4,7 +4,7 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 import {
   createTaxRegime,
   getTaxRegimes,
-  updateTaxRegime,
+  updateTaxRegime, 
   deleteTaxRegime
 } from "../Controllers/taxRegimeController.js";
 
