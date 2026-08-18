@@ -829,17 +829,23 @@ const handleEditSalary = async (salary) => {
     }
   };
  
-  const handleDownloadPayslip = async (payslipId) => {
+  const handleDownloadPayslip = async (payslipId, payslipData = null) => {
     try {
       const blob = await salaryService.downloadPayslip(payslipId);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const employeeId = payslipData?.employeeId || 'employee';
+      const safeMonth = payslipData?.month || 'unknown';
+      const safeYear = payslipData?.year || '0000';
+      const fileName = blob.filename || `${employeeId}_${safeMonth}_${safeYear}.pdf`;
+
       a.style.display = 'none';
       a.href = url;
-      a.download = `payslip-${payslipId}.pdf`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
+      setTimeout(() => document.body.removeChild(a), 100);
     } catch (error) {
       alert('Error downloading payslip');
     }
@@ -1967,7 +1973,7 @@ const totalDeductions = roundAmount(
 
                       <div className="payslip-actions">
                         <button
-                          onClick={() => handleDownloadPayslip(displayPayslip._id)}
+                          onClick={() => handleDownloadPayslip(displayPayslip._id, displayPayslip)}
                           className="action-btns primary"
                         >
                           Download

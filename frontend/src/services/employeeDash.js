@@ -1,6 +1,22 @@
 // services/employee.js
 import api from './api';
 
+const extractFilenameFromContentDisposition = (contentDisposition) => {
+  if (!contentDisposition) return '';
+
+  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition);
+  if (utf8Match) {
+    return decodeURIComponent(utf8Match[1].replace(/['"]/g, ''));
+  }
+
+  const standardMatch = /filename="?([^";]+)"?/i.exec(contentDisposition);
+  if (standardMatch) {
+    return standardMatch[1];
+  }
+
+  return '';
+};
+
 export const employeeDashService = {
   // Get employee profile
  async getEmployeeProfile() {
@@ -43,6 +59,16 @@ async downloadPayslip(payslipId) {
     const response = await api.get(`/salaries/payslip/${payslipId}/download`, {
       responseType: 'blob'
     });
-    return response.data;
+
+    const blob = response.data;
+    const fileName = extractFilenameFromContentDisposition(
+      response.headers?.['content-disposition'] || response.headers?.['Content-Disposition']
+    );
+
+    if (fileName) {
+      blob.filename = fileName;
+    }
+
+    return blob;
   },
 };

@@ -61,18 +61,23 @@ const EmployeeDashboard = () => {
     }
   };
  
-  const handleDownloadPayslip = async (payslipId) => {
+  const handleDownloadPayslip = async (payslipId, payslipData = null) => {
     try {
-      // This would need to be implemented in your employeeDashService
       const blob = await employeeDashService.downloadPayslip(payslipId);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const employeeId = payslipData?.employeeId || 'employee';
+      const safeMonth = payslipData?.month || 'unknown';
+      const safeYear = payslipData?.year || '0000';
+      const fileName = blob.filename || `${employeeId}_${safeMonth}_${safeYear}.pdf`;
+
       a.style.display = 'none';
       a.href = url;
-      a.download = `payslip-${payslipId}.pdf`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
+      setTimeout(() => document.body.removeChild(a), 100);
     } catch (error) {
       alert('Error downloading payslip');
     }
@@ -216,7 +221,7 @@ const EmployeeDashboard = () => {
                           </button>
                           <button
                             className="action-btns success"
-                            onClick={() => handleDownloadPayslip(payslip._id)}
+                            onClick={() => handleDownloadPayslip(payslip._id, payslip)}
                             title="Download Payslip"
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
