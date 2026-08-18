@@ -15,4 +15,4 @@ router.get("/", getDeductionLimits);
 router.put("/:id", authenticateToken, requireRole('admin'), updateDeductionLimit);
 router.delete("/:id", authenticateToken, requireRole('admin'), deleteDeductionLimit);
 
-export default router;
+export default router; 
