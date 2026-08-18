@@ -365,27 +365,27 @@ router.post('/:id/generate-payslip', authenticateToken, requireRole('admin'), as
       });
     }
 
-    // ✅ 📅 3️⃣ VALIDATE PAYSLIP GENERATION DATE (ADD HERE)
-    const monthIndex = new Date(`${salary.month} 1, ${salary.year}`).getMonth();
+    // // ✅ 📅 3️⃣ VALIDATE PAYSLIP GENERATION DATE (ADD HERE)
+    // const monthIndex = new Date(`${salary.month} 1, ${salary.year}`).getMonth();
 
-    const lastDayOfMonth = new Date(salary.year, monthIndex + 1, 0);
-    const firstDayNextMonth = new Date(salary.year, monthIndex + 1, 1);
+    // const lastDayOfMonth = new Date(salary.year, monthIndex + 1, 0);
+    // const firstDayNextMonth = new Date(salary.year, monthIndex + 1, 1);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // const today = new Date();
+    // today.setHours(0, 0, 0, 0);
 
-    lastDayOfMonth.setHours(0, 0, 0, 0);
-    firstDayNextMonth.setHours(0, 0, 0, 0);
+    // lastDayOfMonth.setHours(0, 0, 0, 0);
+    // firstDayNextMonth.setHours(0, 0, 0, 0);
 
-    const isValidDate =
-      today.getTime() === lastDayOfMonth.getTime() ||
-      today.getTime() === firstDayNextMonth.getTime();
+    // const isValidDate =
+    //   today.getTime() === lastDayOfMonth.getTime() ||
+    //   today.getTime() === firstDayNextMonth.getTime();
 
-    if (!isValidDate) {
-      return res.status(400).json({
-        message: `Payslip for ${salary.month} ${salary.year} can only be generated on ${lastDayOfMonth.toDateString()} or ${firstDayNextMonth.toDateString()}`
-      });
-    }
+    // if (!isValidDate) {
+    //   return res.status(400).json({
+    //     message: `Payslip for ${salary.month} ${salary.year} can only be generated on ${lastDayOfMonth.toDateString()} or ${firstDayNextMonth.toDateString()}`
+    //   });
+    // }
  
     // 🔹 3️⃣ Check if payslip already exists
 
@@ -571,6 +571,7 @@ router.get('/payslip/:id/download', async (req, res) => {
   const doc = new PDFDocument();
   // Create filename using payslip name and month/year
   const filename = `${payslip.name}_${payslip.month}_${payslip.year}.pdf`;
+  console.log(`📄 Generating PDF for payslip: ${filename}`);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
   doc.pipe(res);
