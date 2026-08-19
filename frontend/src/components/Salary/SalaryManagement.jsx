@@ -1022,7 +1022,7 @@ const totalDeductions = roundAmount(
                           {!showDisabledRecords ? (
                             <>
                               <button
-                                className="action-btns primary"
+                                className="action-bts primary"
                                 onClick={() => handleViewPayslips(salary.employeeId)}
                                 title="View Payslips"
                               >
@@ -1032,7 +1032,7 @@ const totalDeductions = roundAmount(
                                 </svg>
                               </button>
                               <button
-                                className={`action-btns ${payslipStatus[salary._id]?.hasPayslip ? 'success' : 'warning'}`}
+                                className={`action-bts ${payslipStatus[salary._id]?.hasPayslip ? 'success' : 'warning'}`}
                                 onClick={() => handleGeneratePayslip(salary._id)}
                                 disabled={payslipStatus[salary._id]?.hasPayslip}
                                 title={payslipStatus[salary._id]?.hasPayslip ? 'Paid' : 'Generate Payslip'}
@@ -1046,7 +1046,7 @@ const totalDeductions = roundAmount(
                                 </svg>
                               </button>
                               <button
-                                className="action-btns"
+                                className="action-bts"
                                 onClick={() => handleEditSalary(salary)}
                                 title="Edit Salary"
                               >
@@ -1058,7 +1058,7 @@ const totalDeductions = roundAmount(
                             </>
                           ) : (
                             <button
-                              className="action-btns"
+                              className="action-bts"
                               onClick={() => handleSalaryDetail(salary)}
                               title="View Details"
                             >
@@ -1069,7 +1069,7 @@ const totalDeductions = roundAmount(
                             </button>
                           )}
                           <button
-                            className="action-btns danger"
+                            className="action-bts danger"
                             onClick={() => handleDeleteSalary(salary._id)}
                             title="Delete Record"
                           >
@@ -1358,14 +1358,14 @@ const totalDeductions = roundAmount(
                 <div className="detail-actions">
                   {selectedSalaryDetail.activeStatus === 'enabled' && (
                     <button
-                      className="action-btns primary"
+                      className="action-bts primary"
                       onClick={() => handleGiveHike(selectedSalaryDetail)}
                     >
                       Add Hike
                     </button>
                   )}
                   <button
-                    className="action-btns"
+                    className="action-bts"
                     onClick={() => {
                       setShowSalaryDetail(false);
                       setHikeFilterMonth('');
@@ -1445,14 +1445,14 @@ const totalDeductions = roundAmount(
                   <button
                     type="button"
                     onClick={() => setShowHikeForm(false)}
-                    className="action-btns"
+                    className="action-bts"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={applyHike}
-                    className="action-btns primary"
+                    className="action-bts primary"
                     disabled={!hikePercentage || !hikeStartDate}
                   >
                     Apply Hike
@@ -1812,14 +1812,14 @@ const totalDeductions = roundAmount(
                     <button
                       type="button"
                       onClick={() => setShowSalaryForm(false)}
-                      className="action-btns"
+                      className="action-bts"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={loading}
-                      className="action-btns primary"
+                      className="action-bts primary"
                     >
                       {loading ? (editingSalary ? 'Updating...' : 'Creating...') : (editingSalary ? 'Update Salary Record' : 'Create Salary Record')}
                     </button>
@@ -1974,13 +1974,13 @@ const totalDeductions = roundAmount(
                       <div className="payslip-actions">
                         <button
                           onClick={() => handleDownloadPayslip(displayPayslip._id, displayPayslip)}
-                          className="action-btns primary"
+                          className="action-bts primary"
                         >
                           Download
                         </button>
                         <button
                           onClick={() => handleDeletePayslip(displayPayslip._id)}
-                          className="action-btns danger"
+                          className="action-bts danger"
                         >
                           Delete
                         </button>
