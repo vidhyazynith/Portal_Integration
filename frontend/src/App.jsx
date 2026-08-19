@@ -10,7 +10,7 @@ function AppRoutes() {
   const { user } = useAuth();
 
   return (
-    <Routes>
+    <Routes> 
       <Route 
         path="/login" 
         element={!user ? <Login /> : <Navigate to="/dashboard" replace />} 
