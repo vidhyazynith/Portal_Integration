@@ -136,7 +136,7 @@ router.get('/payslip/:id/download', authenticateToken, async (req, res) => {
       return res.status(403).json({
         message: 'Payslip cannot be downloaded because the salary record is not active',
       });
-    }
+    } 
 
 
     // Create PDF
