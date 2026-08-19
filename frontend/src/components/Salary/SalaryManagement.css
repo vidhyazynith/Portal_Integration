@@ -460,7 +460,7 @@
   justify-content: flex-start !important;
 }
 
-.table-actions .action-btns {
+.table-actions .action-bts {
   padding: 8px;
   width: 36px;
   height: 36px;
@@ -474,7 +474,7 @@
   overflow: hidden;
 }
 
-.table-actions .action-btns::before {
+.table-actions .action-bts::before {
   content: '';
   position: absolute;
   top: 0;
@@ -485,16 +485,16 @@
   transition: left 0.6s ease;
 }
 
-.table-actions .action-btns:hover::before {
+.table-actions .action-bts:hover::before {
   left: 100%;
 }
 
-.table-actions .action-btns svg {
+.table-actions .action-bts svg {
   margin: 0;
   transition: transform 0.2s ease;
 }
 
-.table-actions .action-btns:hover svg {
+.table-actions .action-bts:hover svg {
   transform: scale(1.1);
 }
 
@@ -502,20 +502,20 @@
   opacity: 0.7;
 }
 
-.table-actions.limited-actions .action-btns:not(.danger) {
+.table-actions.limited-actions .action-bts:not(.danger) {
   background: #f3f4f6;
   color: #6b7280;
   border-color: #d1d5db;
 }
 
-.table-actions.limited-actions .action-btn:not(.danger):hover {
+.table-actions.limited-actions .action-bts:not(.danger):hover {
   background: #e5e7eb;
   transform: none;
   box-shadow: none;
 }
 
 /* Enhanced Action Button Styles */
-.action-btns {
+.action-bts {
   padding: 10px 16px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -532,7 +532,7 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.action-btns::before {
+.action-bts::before {
   content: '';
   position: absolute;
   top: 0;
@@ -543,75 +543,75 @@
   transition: left 0.6s ease;
 }
 
-.action-btns:hover::before {
+.action-bts:hover::before {
   left: 100%;
 }
 
-.action-btns.primary {
+.action-bts.primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-color: #667eea;
   box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
 }
 
-.action-btns.primary:hover {
+.action-bts.primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-.action-btns.success {
+.action-bts.success {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
   border-color: #10b981;
   box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
-.action-btns.success:hover {
+.action-bts.success:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
-.action-btns.warning {
+.action-bts.warning {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: white;
   border-color: #f59e0b;
   box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
 }
 
-.action-btns.warning:hover {
+.action-bts.warning:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
-.action-btns.danger {
+.action-bts.danger {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
   border-color: #ef4444;
   box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
 }
 
-.action-btns.danger:hover {
+.action-bts.danger:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
-.action-btns:hover {
+.action-bts:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.action-btns:active {
+.action-bts:active {
   transform: translateY(0);
 }
 
-.action-btns:disabled {
+.action-bts:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-.action-btns:disabled:hover {
+.action-bts:disabled:hover {
   transform: none;
 }
 
@@ -1375,7 +1375,7 @@
   margin-top: auto;
 }
 
-.payslip-actions .action-btns {
+.payslip-actions .action-bts {
   padding: 4px 8px;
   font-size: 15px;
   font-weight: 500;
@@ -1391,23 +1391,23 @@
   text-decoration: none;
 }
 
-.payslip-actions .action-btns.primary {
+.payslip-actions .action-bts.primary {
   background: #4077ef;
   color: white;
 }
 
-.payslip-actions .action-btns.primary:hover {
+.payslip-actions .action-bts.primary:hover {
   background: #1d4ed8;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
 }
 
-.payslip-actions .action-btns.danger {
+.payslip-actions .action-bts.danger {
   background: #de4f4f;
   color: white;
 }
 
-.payslip-actions .action-btns.danger:hover {
+.payslip-actions .action-bts.danger:hover {
   background: #db1e1e;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
@@ -2563,7 +2563,7 @@
     margin-top: 8px;
   }
   
-  .payslip-actions .action-btns {
+  .payslip-actions .action-bts {
     flex: 1;
     min-width: auto;
     font-size: 11px;
@@ -2608,7 +2608,7 @@
     flex-direction: column;
   }
   
-  .detail-actions .action-btns {
+  .detail-actions .action-bts {
     width: 100%;
     justify-content: center;
   }
@@ -2645,7 +2645,7 @@
     flex-direction: row;
   }
   
-  .payslip-actions .action-btns {
+  .payslip-actions .action-bts {
     font-size: 10px;
     padding: 5px 8px;
     height: 22px;
