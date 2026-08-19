@@ -449,7 +449,7 @@ const SalaryTemplateManagement = () => {
                       <td>
                         <div className="table-actions" onClick={(e) => e.stopPropagation()}>
                           <button
-                            className="action-btns"
+                            className="action-bts"
                             onClick={() => handleEditTemplate(template)}
                             title="Edit Template"
                           >
@@ -460,7 +460,7 @@ const SalaryTemplateManagement = () => {
                           </button>
                           <button
 
-                          className={`action-btns ${template.status === 'active' ? 'warning' : 'success'}`}
+                          className={`action-bts ${template.status === 'active' ? 'warning' : 'success'}`}
 
                           onClick={() => handleStatusChange(template._id, template.status)}
 
@@ -486,7 +486,7 @@ const SalaryTemplateManagement = () => {
                         </button>
  
                           <button
-                            className="action-btns danger"
+                            className="action-bts danger"
                             onClick={() => handleDeleteTemplate(template._id)}
                             title="Delete Template"
                           >
@@ -593,7 +593,7 @@ const SalaryTemplateManagement = () => {
                 {/* Action Buttons */}
                 <div className="detail-actions">
                   <button
-                    className="action-btns primary"
+                    className="action-bts primary"
                     onClick={() => {
                       setShowTemplateDetail(false);
                       handleEditTemplate(selectedTemplateDetail);
@@ -602,7 +602,7 @@ const SalaryTemplateManagement = () => {
                     Edit Template
                   </button>
                   <button
-                    className="action-btns"
+                    className="action-bts"
                     onClick={() => setShowTemplateDetail(false)}
                   >
                     Close
@@ -832,14 +832,14 @@ const SalaryTemplateManagement = () => {
                     <button
                       type="button"
                       onClick={() => setShowTemplateForm(false)}
-                      className="action-btns"
+                      className="action-bts"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={loading}
-                      className="action-btns primary"
+                      className="action-bts primary"
                     >
                       {loading ? (editingTemplate ? 'Updating...' : 'Creating...') : (editingTemplate ? 'Update Template' : 'Create Template')}
                     </button>
