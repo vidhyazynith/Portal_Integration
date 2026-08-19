@@ -42,7 +42,7 @@ jobs:
             API_URL="https://finance.zynith-it.com/api"
             FRONTEND_URL="https://finance.zynith-it.com"
 
-            OLD_API_IP="https://finance.zynith-it.com"
+            OLD_API_IP="16.112.200.177"
 
             # ======================================
             # Error handler
