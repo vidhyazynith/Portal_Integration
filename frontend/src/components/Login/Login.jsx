@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import './Login.css';
 
 const Login = () => {
@@ -136,6 +136,12 @@ const Login = () => {
                 disabled={loading}
                 autoComplete="current-password"
               />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-1rem', marginBottom: '1.5rem' }}>
+              <Link to="/forgot-password" className="forgot-password" style={{ margin: 0 }}>
+                Forgot password?
+              </Link>
             </div>
 
             <button type="submit" className="signin-btn" disabled={loading}>

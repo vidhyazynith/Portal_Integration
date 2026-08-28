@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './components/Login/Login';
+import ForgotPassword from './components/ForgotPassword/ForgotPassword';
+import ResetPassword from './components/ResetPassword/ResetPassword';
 import Dashboard from './components/Dashboard';
 
 
@@ -14,6 +16,14 @@ function AppRoutes() {
       <Route 
         path="/login" 
         element={!user ? <Login /> : <Navigate to="/dashboard" replace />} 
+      />
+      <Route 
+        path="/forgot-password" 
+        element={!user ? <ForgotPassword /> : <Navigate to="/dashboard" replace />} 
+      />
+      <Route 
+        path="/reset-password/:token" 
+        element={!user ? <ResetPassword /> : <Navigate to="/dashboard" replace />} 
       />
       <Route 
         path="/dashboard" 

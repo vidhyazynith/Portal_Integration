@@ -1,15 +1,40 @@
 import nodemailer from 'nodemailer';
+import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Create transporter
+// Helper to get sender email address
+export const getSenderEmail = () => {
+  return process.env.EMAIL_FROM || process.env.EMAIL_USER || 'info@zynith-it.com';
+};
+
+// Create transporter (AWS SES in production / when EMAIL_PROVIDER=ses, otherwise SMTP)
 const createTransporter = () => {
+  const isSES =
+    process.env.EMAIL_PROVIDER === 'ses' ||
+    (process.env.NODE_ENV === 'production' && Boolean(process.env.AWS_ACCESS_KEY_ID) && Boolean(process.env.AWS_SECRET_ACCESS_KEY));
+
+  if (isSES) {
+    const ses = new SESClient({
+      region: process.env.AWS_SES_REGION || process.env.AWS_REGION || 'ap-south-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      },
+    });
+
+    return nodemailer.createTransport({
+      SES: { ses, aws: { SendRawEmailCommand } },
+    });
+  }
+
+  // Fallback to standard SMTP (development/local)
   return nodemailer.createTransport({
     service: process.env.EMAIL_SERVICE,
     host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: false,
+    port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 587,
+    secure: process.env.EMAIL_PORT === '465',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -116,7 +141,7 @@ export const sendEmployeeCredentials = async (employeeData, plainPassword) => {
     const mailOptions = {
       from: {
         name: 'Company HR System',
-        address: process.env.EMAIL_USER
+        address: getSenderEmail()
       },
       to: employeeData.email,
       subject: 'Your Employee Account Credentials',
@@ -172,7 +197,7 @@ export const sendPayslipEmail = async (payslip) => {
     const mailOptions = {
       from: {
         name: 'Zynith IT Solutions - HR',
-        address: process.env.EMAIL_USER
+        address: getSenderEmail()
       },
       to: payslip.email,
       subject: `Salary Payslip - ${payslip.month} ${payslip.year}`,
@@ -313,3 +338,145 @@ const createPayslipEmailTemplate = (payslip) => {
     </html>
   `;
 };
+
+// Password reset email template
+const createPasswordResetEmailTemplate = (resetUrl, user) => {
+  const displayName = user.personId || user.email;
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .header {
+                background: linear-gradient(135deg, #06510f, #3a9440);
+                color: white;
+                padding: 30px;
+                text-align: center;
+                border-radius: 10px 10px 0 0;
+            }
+            .content {
+                background: #f8f9fa;
+                padding: 30px;
+                border-radius: 0 0 10px 10px;
+            }
+            .reset-card {
+                background: white;
+                padding: 25px;
+                border-radius: 8px;
+                margin: 20px 0;
+                border-left: 4px solid #3a9440;
+                text-align: center;
+            }
+            .reset-btn {
+                display: inline-block;
+                background: linear-gradient(135deg, #3a9440, #5acd62);
+                color: white !important;
+                padding: 14px 35px;
+                text-decoration: none;
+                border-radius: 25px;
+                margin: 20px 0;
+                font-weight: bold;
+                font-size: 16px;
+                box-shadow: 0 4px 15px rgba(58, 148, 64, 0.3);
+            }
+            .link-fallback {
+                word-break: break-all;
+                font-size: 13px;
+                color: #666;
+                background: #eee;
+                padding: 10px;
+                border-radius: 5px;
+                margin-top: 15px;
+            }
+            .security-note {
+                background: #fff3cd;
+                border: 1px solid #ffeeba;
+                color: #856404;
+                padding: 15px;
+                border-radius: 6px;
+                margin-top: 20px;
+                font-size: 14px;
+            }
+            .footer {
+                text-align: center;
+                margin-top: 30px;
+                color: #666;
+                font-size: 14px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Zynith IT Solutions</h1>
+            <h2>Password Reset Request</h2>
+        </div>
+        <div class="content">
+            <h2>Hello ${displayName},</h2>
+            <p>We received a request to reset the password for your account (<strong>${user.email}</strong>).</p>
+            
+            <div class="reset-card">
+                <p>Click the button below to reset your password. This link is valid for <strong>1 hour</strong>.</p>
+                <a href="${resetUrl}" class="reset-btn" target="_blank">Reset Password</a>
+                <p style="margin-top: 15px; font-size: 13px; color: #777;">If the button doesn't work, copy and paste this link into your browser:</p>
+                <div class="link-fallback">${resetUrl}</div>
+            </div>
+
+            <div class="security-note">
+                <strong>🔒 Security Notice:</strong>
+                <p style="margin: 5px 0 0 0;">If you did not request a password reset, please ignore this email or contact support if you suspect unauthorized access. Your password will remain unchanged.</p>
+            </div>
+        </div>
+        <div class="footer">
+            <p>This is an automated message from Zynith IT Solutions Finance Portal.</p>
+            <p>© ${new Date().getFullYear()} Zynith IT Solutions. All rights reserved.</p>
+        </div>
+    </body>
+    </html>
+  `;
+};
+
+// Send password reset email
+export const sendPasswordResetEmail = async (user, rawToken) => {
+  try {
+    const transporter = createTransporter();
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password/${rawToken}`;
+
+    const mailOptions = {
+      from: {
+        name: 'Zynith IT Solutions - Security',
+        address: getSenderEmail()
+      },
+      to: user.email,
+      subject: 'Password Reset Request - Zynith IT Solutions',
+      html: createPasswordResetEmailTemplate(resetUrl, user),
+      text: `Hello ${user.personId || user.email},
+
+We received a request to reset your password for Zynith IT Solutions Finance Portal.
+
+Please reset your password using the link below (valid for 1 hour):
+${resetUrl}
+
+If you did not request this password reset, please ignore this email.
+
+Best regards,
+Zynith IT Solutions Team`
+    };
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent successfully:', result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    return { success: false, error: error.message };
+  }
+};
