@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses';
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,14 +9,12 @@ export const getSenderEmail = () => {
   return process.env.EMAIL_FROM || process.env.EMAIL_USER || 'info@zynith-it.com';
 };
 
-// Create transporter (AWS SES in production / when EMAIL_PROVIDER=ses, otherwise SMTP)
+// Create transporter (AWS SES when EMAIL_PROVIDER=ses, otherwise standard SMTP/Gmail)
 const createTransporter = () => {
-  const isSES =
-    process.env.EMAIL_PROVIDER === 'ses' ||
-    (process.env.NODE_ENV === 'production' && Boolean(process.env.AWS_ACCESS_KEY_ID) && Boolean(process.env.AWS_SECRET_ACCESS_KEY));
+  const isSES = process.env.EMAIL_PROVIDER === 'ses';
 
   if (isSES) {
-    const ses = new SESClient({
+    const ses = new SESv2Client({
       region: process.env.AWS_SES_REGION || process.env.AWS_REGION || 'ap-south-1',
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -25,14 +23,24 @@ const createTransporter = () => {
     });
 
     return nodemailer.createTransport({
-      SES: { ses, aws: { SendRawEmailCommand } },
+      SES: { sesClient: ses, SendEmailCommand },
     });
   }
 
-  // Fallback to standard SMTP (development/local)
+  // Gmail Service (Recommended for Gmail)
+  if (process.env.EMAIL_SERVICE === 'gmail') {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  }
+
+  // Fallback to custom SMTP host & port
   return nodemailer.createTransport({
-    service: process.env.EMAIL_SERVICE,
-    host: process.env.EMAIL_HOST,
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 587,
     secure: process.env.EMAIL_PORT === '465',
     auth: {
