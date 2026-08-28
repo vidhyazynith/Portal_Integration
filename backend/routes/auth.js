@@ -107,8 +107,10 @@ router.post('/forgot-password', async (req, res) => {
     const emailResult = await sendPasswordResetEmail(user, rawToken);
 
     if (!emailResult.success) {
+      console.error('Password reset email delivery failed:', emailResult.error);
       return res.status(500).json({ 
-        message: 'Failed to send password reset email. Please try again later.' 
+        message: 'Failed to send password reset email. Please try again later.',
+        error: process.env.NODE_ENV !== 'production' ? emailResult.error : undefined
       });
     }
 
