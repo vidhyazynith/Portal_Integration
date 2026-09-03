@@ -68,6 +68,17 @@ const createEmployeeEmailTemplate = (employeeData, loginUrl) => {
                 color: #666;
                 font-size: 14px;
             }
+            .download-btn {
+                display: inline-block;
+                background: linear-gradient(135deg, #4361ee, #7209b7);
+                color: white;
+                padding: 14px 32px;
+                text-decoration: none;
+                border-radius: 6px;
+                margin: 24px 0;
+                font-weight: bold;
+                font-size: 16px;
+            }   
         </style>
     </head>
     <body>
@@ -168,29 +179,24 @@ export const testEmailConfig = async () => {
 export const sendPayslipEmail = async (payslip) => {
   try {
     const transporter = createTransporter();
+       const downloadLink = `http://localhost:5000/api/salaries/payslip/${payslip._id}/download`;
     
     const mailOptions = {
-      from: {
-        name: 'Zynith IT Solutions - HR',
-        address: process.env.EMAIL_USER
-      },
-      to: payslip.email,
-      subject: `Salary Payslip - ${payslip.month} ${payslip.year}`,
-      html: createPayslipEmailTemplate(payslip),
-      text: `Dear ${payslip.name},
+        from: {
+            name: 'Zynith IT Solutions - HR',
+            address: process.env.EMAIL_USER 
+        },
+        to: payslip.email,
+        subject: `Your ${payslip.month} Payslip`,
+        html: createPayslipEmailTemplate(payslip, downloadLink),
+        text: `Dear ${payslip.name},
 
-Your salary for ${payslip.month} ${payslip.year} has been processed.
+    Your ${payslip.month} ${payslip.year} payslip is ready.
 
-Employee ID: ${payslip.employeeId}
-Basic Salary: $${payslip.basicSalary}
-Gross Earnings: $${payslip.grossEarnings}
-Total Deductions: $${payslip.totalDeductions}
-Net Pay: $${payslip.netPay}
+    Download your payslip here: ${downloadLink}
 
-Please find the attached payslip for detailed information.
-
-Best regards,
-Zynith IT Solutions HR Team`
+    Best regards,
+    Zynith IT Solutions HR Team`
     };
 
     const result = await transporter.sendMail(mailOptions);
@@ -203,7 +209,7 @@ Zynith IT Solutions HR Team`
 };
 
 // Payslip email template
-const createPayslipEmailTemplate = (payslip) => {
+const createPayslipEmailTemplate = (payslip, downloadLink) => {
   return `
     <!DOCTYPE html>
     <html>
@@ -266,43 +272,9 @@ const createPayslipEmailTemplate = (payslip) => {
             <h2>Salary Payslip</h2>
         </div>
         <div class="content">
-            <h2>Hello ${payslip.name},</h2>
-            <p>Your salary for <strong>${payslip.month} ${payslip.year}</strong> has been processed successfully.</p>
-            
-            <div class="salary-summary">
-                <h3>Salary Details</h3>
-                <div class="details-grid">
-                    <div>
-                        <strong>Employee ID:</strong><br>
-                        ${payslip.employeeId}
-                    </div>
-                    <div>
-                        <strong>Pay Date:</strong><br>
-                        ${new Date(payslip.payDate).toLocaleDateString()}
-                    </div>
-                </div>
-                
-                <h4>Earnings</h4>
-                <p><strong>Basic Salary:</strong> $${payslip.basicSalary.toFixed(2)}</p>
-                ${payslip.earnings.map(earning => `
-                    <p><strong>${earning.type}:</strong> $${earning.amount.toFixed(2)}</p>
-                `).join('')}
-                <p><strong>Gross Earnings:</strong> $${payslip.grossEarnings.toFixed(2)}</p>
-                
-                <h4>Deductions</h4>
-                ${payslip.deductions.map(deduction => `
-                    <p><strong>${deduction.type}:</strong> $${deduction.amount.toFixed(2)}</p>
-                `).join('')}
-                <p><strong>Total Deductions:</strong> $${payslip.totalDeductions.toFixed(2)}</p>
-                
-                <div class="net-pay">
-                    Net Pay: $${payslip.netPay.toFixed(2)}
-                </div>
-                
-                <p><strong>Paid Days:</strong> ${payslip.paidDays}</p>
-                <p><strong>LOP Days:</strong> ${payslip.lopDays}</p>
-            </div>
-            
+            <p>Hello ${payslip.name},</p>
+            <p>Your payslip for <strong>${payslip.month} ${payslip.year}</strong> is ready.</p>
+            <a href="${downloadLink}" class="download-btn">Download Payslip</a>
             <p>This is an automated email. Please do not reply to this message.</p>
         </div>
         <div class="footer">

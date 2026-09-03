@@ -213,6 +213,16 @@ async getHikeHistory(employeeId, filters = {}) {
     console.error('Error fetching hike history:', error);
     throw error;
   }
+},
+// check for missing payslips
+async checkMissingPayslips() {
+  try {
+    const response = await api.post('/salaries/check-missing-payslips');
+    return response.data;
+  } catch (error) {
+    console.error('Error checking missing payslips:', error);
+    throw error;
+  }
 }
 
 };
