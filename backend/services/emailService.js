@@ -487,4 +487,4 @@ Zynith IT Solutions Team`
     console.error('Error sending password reset email:', error);
     return { success: false, error: error.message };
   }
-};
+};

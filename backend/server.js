@@ -15,7 +15,7 @@ import companyRoutes from './routes/companyRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js'
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { startHikeCronJob, startSalaryMonthUpdateJob } from './services/cronService.js';
+import { startHikeCronJob, startSalaryMonthUpdateJob, startAutoPayslipGenerationJob, startMissingPayslipRecoveryJob } from './services/cronService.js';
 import Salary from './models/Salary.js'; // Import Salary model for manual trigger
 import salaryTemplateRoutes from './routes/salaryTemplateRoutes.js';
 import DesignationRoutes from './routes/designationRoutes.js';
@@ -26,6 +26,8 @@ import employeeTaxRegimeRoutes from './routes/employeeTaxRegimeRoutes.js';
 import taxRegimeRoutes from "./routes/taxRegimeRoutes.js";
 import employeeTaxDeclarationRoutes from "./routes/employeeTaxDeclarationRoutes.js";
 import taxCalculationRoutes from "./routes/taxCalculationRoutes.js";
+
+
 
 dotenv.config();
 
@@ -139,6 +141,8 @@ mongoose.connect(process.env.MONGODB_URI,
   // Start the cron jobs after successful database connection
     startHikeCronJob();
     startSalaryMonthUpdateJob();
+    startAutoPayslipGenerationJob();
+    startMissingPayslipRecoveryJob();
     })
   .catch((error) => console.error('❌ MongoDB connection error:', error));
 
