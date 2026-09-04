@@ -10,6 +10,8 @@ import numberToWords from 'number-to-words';
 import axios from "axios";
 import path from "path";
 import fs from 'fs';
+import { generatePayslipForSalary } from '../services/cronService.js';
+
 const HR_API = process.env.HR_API_URL || 'https://hr.zynith-it.com'; // HR service URL from env or default
 
 const router = express.Router(); 
@@ -256,6 +258,8 @@ router.get('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
 });
 
 // Update salary record
+// Update salary record
+// Update salary record
 router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
     const salary = await Salary.findByIdAndUpdate(
@@ -263,26 +267,25 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
       { $set: req.body },
       { new: true, runValidators: true }
     );
-    
     if (!salary) {
       return res.status(404).json({ message: 'Salary record not found' });
     }
-    
-    res.json({ 
-      message: 'Salary record updated successfully', 
-      salary 
+
+    res.json({
+      message: 'Salary record updated successfully',
+      salary
     });
   } catch (error) {
     console.error('Error updating salary:', error);
-    
+
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        message: 'Validation failed', 
-        errors 
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors
       });
     }
-    
+
     res.status(500).json({ message: 'Server error while updating salary' });
   }
 });
@@ -334,191 +337,6 @@ router.post('/:id/apply-hike', authenticateToken, requireRole('admin'), async (r
   }
 });
 
-
-router.post('/:id/generate-payslip', authenticateToken, requireRole('admin'), async (req, res) => {
-
-  try {
- 
-    // 🔹 1️⃣ Find salary record first
-
-    const salary = await Salary.findById(req.params.id);
-    if (!salary) {
-
-      return res.status(404).json({ message: 'Salary record not found' });
-    }
- 
-    // 🔹 2️⃣ Check salary is active
-
-    if (salary.activeStatus !== 'enabled') {
-
-      return res.status(400).json({
-
-        message: 'Payslip cannot be generated for disabled salary records.'
-
-      });
-    }
-
-    // 🔹 2️⃣ Check salary is active
-    if (salary.activeStatus !== 'enabled') {
-      return res.status(400).json({
-        message: 'Payslip cannot be generated for disabled salary records.'
-      });
-    }
-
-    // // ✅ 📅 3️⃣ VALIDATE PAYSLIP GENERATION DATE (ADD HERE)
-    // const monthIndex = new Date(`${salary.month} 1, ${salary.year}`).getMonth();
-
-    // const lastDayOfMonth = new Date(salary.year, monthIndex + 1, 0);
-    // const firstDayNextMonth = new Date(salary.year, monthIndex + 1, 1);
-
-    // const today = new Date();
-    // today.setHours(0, 0, 0, 0);
-
-    // lastDayOfMonth.setHours(0, 0, 0, 0);
-    // firstDayNextMonth.setHours(0, 0, 0, 0);
-
-    // const isValidDate =
-    //   today.getTime() === lastDayOfMonth.getTime() ||
-    //   today.getTime() === firstDayNextMonth.getTime();
-
-    // if (!isValidDate) {
-    //   return res.status(400).json({
-    //     message: `Payslip for ${salary.month} ${salary.year} can only be generated on ${lastDayOfMonth.toDateString()} or ${firstDayNextMonth.toDateString()}`
-    //   });
-    // }
- 
-    // 🔹 3️⃣ Check if payslip already exists
-
-    const existingPayslip = await Payslip.findOne({
-      employeeId: salary.employeeId,
-      month: salary.month,
-      year: salary.year
-    });
- 
-    if (existingPayslip) {
-      return res.status(400).json({
-        message: `Payslip already generated for ${salary.month} ${salary.year}`
-      });
-    }
- 
-    // 🔥 4️⃣ CALL HR FOR PAYROLL DATA
-    let hrData;
-
-    try {
-
-      const monthMap = {
-        January: 1,
-        February: 2,
-        March: 3,
-        April: 4,
-        May: 5,
-        June: 6,
-        July: 7,
-        August: 8,
-        September: 9,
-        October: 10,
-        November: 11,
-        December: 12
-      };
- 
-      const numericMonth = monthMap[salary.month] || salary.month;
-      const hrResponse = await axios.get(
-
-        `${HR_API}/api/payroll/payroll-data/${salary.employeeId}`,
-
-        {
-          params: {
-            year: salary.year,
-            month: numericMonth
-          },
-
-          timeout: 10000
-        }
-      );
-      hrData = hrResponse.data;
-      console.log("✅ Payroll data fetched from HR:", hrData);
-    } catch (err) {
-
-      console.error("❌ HR ERROR:", err.response?.data || err.message);
-      return res.status(500).json({
-        message: "Failed to fetch payroll data from HR portal",
-        error: err.response?.data || err.message
-      });
-    }
- 
-    // 🔹 5️⃣ Update salary safely (cast numbers properly)
-
-    salary.casualLeaveTaken = Number(hrData.casualLeaveTaken) || 0;
-    salary.casualLeaveRemaining = Number(hrData.casualLeaveRemaining) || 0;
-    salary.sickLeaveTaken = Number(hrData.sickLeaveTaken) || 0;
-    salary.sickLeaveRemaining = Number(hrData.sickLeaveRemaining) || 0;
-    salary.lopDays = Number(hrData.lopDays) || 0;
-    salary.paidDays = Number(hrData.paidDays) || 0;
- 
-    await salary.save();
- 
-    // 🔹 6️⃣ Create payslip
-    const payslipData = {
-
-      salaryId: salary._id,
-      employeeId: salary.employeeId,
-      name: salary.name,
-      email: salary.email,
-      designation: salary.designation,
-      panNo: salary.panNo,
-      month: salary.month,
-      year: salary.year,
-      payDate: new Date().toISOString().split('T')[0],
-      basicSalary: salary.basicSalary,
-      grossEarnings: salary.grossEarnings,
-      totalDeductions: salary.totalDeductions,
-      netPay: salary.netPay,
-      paidDays: salary.paidDays,
-      lopDays: salary.lopDays,
-      casualLeaveTaken: salary.casualLeaveTaken,
-      casualLeaveRemaining: salary.casualLeaveRemaining,
-      sickLeaveTaken: salary.sickLeaveTaken,
-      sickLeaveRemaining: salary.sickLeaveRemaining,
-      earnings: salary.earnings,
-      deductions: salary.deductions
-    };
-    const payslip = new Payslip(payslipData);
-    await payslip.save();
- 
-    // 🔹 7️⃣ Mark salary as paid
-
-    salary.status = 'paid';
-    await salary.save();
- 
-    // 🔹 8️⃣ Send email
-    const emailResult = await sendPayslipEmail(payslip);
-    return res.json({
-
-      message: 'Payslip generated successfully',
-      emailSent: emailResult.success,
-      leavesCalculation: {
-        casual: {
-          taken: salary.casualLeaveTaken,
-          remaining: salary.casualLeaveRemaining
-        },
-        sick: {
-          taken: salary.sickLeaveTaken,
-          remaining: salary.sickLeaveRemaining
-        },
-        lopDays: salary.lopDays,
-        paidDays: salary.paidDays
-      }
-    });
- 
-  } catch (error) {
-
-    console.error('❌ Error generating payslip:', error);
-    return res.status(500).json({
-      message: 'Server error while generating payslip',
-      error: error.message
-    });
-  }
-});
  
 
 // Get payslips for an employee
@@ -906,6 +724,29 @@ router.get('/employee/:employeeId/hike-history', authenticateToken, async (req, 
   } catch (error) {
     console.error('Error fetching hike history:', error);
     res.status(500).json({ message: 'Server error while fetching hike history' });
+  }
+});
+
+// Check and auto-regenerate missing payslips for ended months
+router.post('/check-missing-payslips', authenticateToken, async (req, res) => {
+  try {
+    const activeSalaries = await Salary.find({ activeStatus: 'enabled' });
+    let restored = 0;
+
+    for (const salary of activeSalaries) {
+      // Check ALL enabled salaries (including current month) —
+      // generatePayslipForSalary already skips if a payslip exists
+      const result = await generatePayslipForSalary(salary._id);
+      if (result.success) {
+        restored++;
+        console.log(`✅ Restored payslip for ${salary.employeeId} (${salary.month} ${salary.year})`);
+      }
+    }
+
+    res.json({ message: 'Missing payslip check completed', restored });
+  } catch (error) {
+    console.error('Error checking missing payslips:', error);
+    res.status(500).json({ message: 'Server error while checking payslips' });
   }
 });
 

@@ -87,12 +87,27 @@ const [showAllHikes, setShowAllHikes] = useState(false); // To toggle between la
   });
  
   useEffect(() => {
+  const initialize = async () => {
+    await checkMissingPayslips();
     loadEmployees();
     loadActiveSalaries();
     loadDisabledSalaries();
     loadDeductionCategories();
     loadFinancialYears(); 
-  }, []);
+  };
+  initialize();
+}, []);
+
+const checkMissingPayslips = async () => {
+  try {
+    const result = await salaryService.checkMissingPayslips();
+    if (result.restored > 0) {
+      console.log(`${result.restored} payslip(s) auto-restored`);
+    }
+  } catch (error) {
+    console.error('Error checking missing payslips:', error);
+  }
+};
  
   useEffect(() => {
     if (activeSalaries.length > 0) {
@@ -781,42 +796,6 @@ const handleEditSalary = async (salary) => {
   }
 };
  
-  const handleGeneratePayslip = async (salaryId) => {
-  const salary = activeSalaries.find(s => s._id === salaryId);
-  if (salary && salary.activeStatus !== 'enabled') {
-    alert('Cannot generate payslip for disabled salary records');
-    return;
-  }
-  try {
-    await salaryService.generatePayslip(salaryId);
-   
-    // Update the status to "paid" using existing update route
-    await salaryService.updateSalary(salaryId, { status: 'paid' });
-   
-    alert('Payslip generated and sent to employee email! Status updated to PAID.');
-
-    // Update local state
-    setActiveSalaries(prev =>
-      prev.map(s =>
-        s._id === salaryId
-          ? { ...s, status: 'paid' }
-          : s
-      )
-    );
-
-    setPayslipStatus(prev => ({
-      ...prev,
-      [salaryId]: {
-        hasPayslip: true,
-        canGenerate: false
-      }
-    }));
-
-    loadActiveSalaries(); // Refresh data
-  } catch (error) {
-    alert(error.response?.data?.message || 'Error generating payslip');
-  }
-};
  
   const handleViewPayslips = async (employeeId) => {
     try {
@@ -1029,20 +1008,6 @@ const totalDeductions = roundAmount(
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                   <circle cx="12" cy="12" r="3"></circle>
-                                </svg>
-                              </button>
-                              <button
-                                className={`action-bts ${payslipStatus[salary._id]?.hasPayslip ? 'success' : 'warning'}`}
-                                onClick={() => handleGeneratePayslip(salary._id)}
-                                disabled={payslipStatus[salary._id]?.hasPayslip}
-                                title={payslipStatus[salary._id]?.hasPayslip ? 'Paid' : 'Generate Payslip'}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                  <polyline points="14 2 14 8 20 8"></polyline>
-                                  <line x1="16" y1="13" x2="8" y2="13"></line>
-                                  <line x1="16" y1="17" x2="8" y2="17"></line>
-                                  <polyline points="10 9 9 9 8 9"></polyline>
                                 </svg>
                               </button>
                               <button
