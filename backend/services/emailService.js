@@ -27,6 +27,7 @@ const createTransporter = () => {
     });
   }
 
+  // Fallback to standard SMTP (development/local)
   // Gmail Service (Recommended for Gmail)
   if (process.env.EMAIL_SERVICE === 'gmail') {
     return nodemailer.createTransport({
@@ -40,6 +41,8 @@ const createTransporter = () => {
 
   // Fallback to custom SMTP host & port
   return nodemailer.createTransport({
+    service: process.env.EMAIL_SERVICE,
+    host: process.env.EMAIL_HOST,
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT, 10) : 587,
     secure: process.env.EMAIL_PORT === '465',

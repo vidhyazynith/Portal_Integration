@@ -12,15 +12,14 @@ const monthMap = {
 }
 /**
  * Start the cron job for processing hike status updates
+ * Runs once daily at 01:00 AM (Asia/Kolkata)
  * @returns {void}
  */
 export const startHikeCronJob = () => {
-  // Run every day at midnight to check for hike status updates
-  cron.schedule('*/1 * * * *', async () => {
+  cron.schedule('0 1 * * *', async () => {
     try {
       console.log('🔄 Checking for salary hike status updates...');
       
-      // This should now show proper types when hovering
       const result = await Salary.processHikeStatusUpdates();
       
       if (result.activated > 0 || result.disabled > 0) {
@@ -28,61 +27,57 @@ export const startHikeCronJob = () => {
       } else {
         console.log('✅ No hike status updates needed');
       }
-
-      const today = new Date();
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate(); // last day of current month
-      const daysLeft = lastDay - today.getDate();
-
-      if (daysLeft === 2) {
-        const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-          .toLocaleString('default', { month: 'long' });
-
-        // Update salary month field
-        await Salary.updateMany({}, { $set: { month: nextMonth } });
-        console.log(`🗓️ Salary month updated to ${nextMonth} (2 days before month end)`);
-      }
-
     } catch (error) {
       console.error('❌ Error processing hike status updates:', error);
     }
+  }, {
+    timezone: 'Asia/Kolkata'
   });
 
-  console.log('✅ Hike status cron job started');
+  console.log('✅ Hike status cron job scheduled (Daily at 01:00 AM, Asia/Kolkata)');
 };
 
 /**
  * Start the cron job for updating salary month on the 1st of every month
- * Updates salary records to show current month to next month (e.g., "May to June")
+ * Updates salary records to show the new active month and resets status to 'pending'
  * @returns {void}
  */
 export const startSalaryMonthUpdateJob = () => {
-  // Run at midnight (00:00) on the 1st of every month
-  cron.schedule('0 0 1 * *', async () => {
+  // Run at 00:05 AM on the 1st of every month
+  cron.schedule('5 0 1 * *', async () => {
     try {
-      console.log('📅 Updating salary month for the new month...');
-      
       const today = new Date();
       const currentMonthName = today.toLocaleString('default', { month: 'long' });
-      const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-      const nextMonthName = nextMonthDate.toLocaleString('default', { month: 'long' });
+      const currentYear = today.getFullYear();
       
-      const salaryMonthUpdate = `${currentMonthName} to ${nextMonthName}`;
+      console.log(`📅 Starting new month update: ${currentMonthName} ${currentYear}...`);
       
-      // Update all salary records with new month format
-      const result = await Salary.updateMany({}, { $set: { month: salaryMonthUpdate } });
+      // Update all salary records with the current new month and reset status
+      const result = await Salary.updateMany(
+        {}, 
+        { 
+          $set: { 
+            month: currentMonthName,
+            year: currentYear,
+            status: 'pending'
+          } 
+        }
+      );
       
-      console.log(`✅ Salary month updated to "${salaryMonthUpdate}" for ${result.modifiedCount} records`);
-      
+      console.log(`✅ Salary month updated to "${currentMonthName} ${currentYear}" for ${result.modifiedCount} records`);
     } catch (error) {
       console.error('❌ Error updating salary month:', error);
     }
+  }, {
+    timezone: 'Asia/Kolkata'
   });
 
-  console.log('✅ Salary month update cron job started');
+  console.log('✅ Salary month update cron job scheduled (1st of each month at 00:05 AM, Asia/Kolkata)');
 };
 // const TESTING_MODE = true; // set to false before going live
 
-  export const generatePayslipForSalary = async (salaryId) => {
+export const generatePayslipForSalary = async (salaryId, options = {}) => {
+  const { force = false } = options;
   const salary = await Salary.findById(salaryId);
   if (!salary) {
     return { success: false, message: 'Salary record not found' };
@@ -91,7 +86,7 @@ export const startSalaryMonthUpdateJob = () => {
     return { success: false, message: 'Payslip cannot be generated for disabled salary records' };
   }
 
-  // 🛡️ Guard: block only future months that haven't started yet
+  // 🛡️ Month validation guard
   const monthIndex = monthMap[salary.month] ? monthMap[salary.month] - 1 : null;
   if (monthIndex === null) {
     return { success: false, message: `Unrecognized month format: ${salary.month}` };
@@ -100,6 +95,7 @@ export const startSalaryMonthUpdateJob = () => {
   const currentMonthIndex = now.getMonth();
   const currentYear = now.getFullYear();
 
+  // 1. Block future months
   const isFutureMonth =
     salary.year > currentYear ||
     (salary.year === currentYear && monthIndex > currentMonthIndex);
@@ -110,12 +106,24 @@ export const startSalaryMonthUpdateJob = () => {
     };
   }
 
+  // 2. Block current ongoing month until the LAST DAY of the month (unless force is true)
+  const isCurrentMonth = (salary.year === currentYear && monthIndex === currentMonthIndex);
+  if (isCurrentMonth && !force) {
+    const lastDayOfMonth = new Date(currentYear, currentMonthIndex + 1, 0).getDate();
+    const isLastDay = (now.getDate() === lastDayOfMonth);
+    if (!isLastDay) {
+      return {
+        success: false,
+        message: `Cannot generate payslip for current month (${salary.month} ${salary.year}) before month-end. Scheduled for the last day of the month (${salary.month} ${lastDayOfMonth}).`
+      };
+    }
+  }
+
   const existingPayslip = await Payslip.findOne({
     employeeId: salary.employeeId,
     month: salary.month,
     year: salary.year
   });
-
 
   if (existingPayslip) {
     return { success: false, message: `Payslip already generated for ${salary.month} ${salary.year}` };
@@ -186,12 +194,12 @@ export const startSalaryMonthUpdateJob = () => {
 };
 
 /**
- * Auto-generate payslips on the last day of each month for all
- * active salary records that don't already have one.
+ * Auto-generate payslips on the last day of each month at 23:00 (11:00 PM IST)
+ * for all active salary records that don't already have one.
  */
 export const startAutoPayslipGenerationJob = () => {
-  // Runs every day at midnight; internally checks if today is the last day of the month
-  cron.schedule('0 0 * * *', async () => {
+  // Runs daily at 23:00 (11:00 PM) in Asia/Kolkata timezone
+  cron.schedule('0 23 * * *', async () => {
     try {
       const today = new Date();
       const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -200,7 +208,7 @@ export const startAutoPayslipGenerationJob = () => {
         return; // Not month-end, skip
       }
 
-      console.log('📄 Month-end reached — starting auto payslip generation...');
+      console.log(`📄 Month-end reached (${today.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}) — starting auto payslip generation...`);
 
       const activeSalaries = await Salary.find({ activeStatus: 'enabled' });
       let generated = 0;
@@ -221,25 +229,23 @@ export const startAutoPayslipGenerationJob = () => {
     } catch (error) {
       console.error('❌ Error in auto payslip generation job:', error);
     }
-  });
-  cron.schedule('* * * * *', () => {
-    console.log(`⏰ Auto payslip generation job is running... (${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })})`);
+  }, {
+    timezone: 'Asia/Kolkata'
   });
 
-  console.log('✅ Auto payslip generation cron job started');
+  console.log('✅ Auto payslip generation cron job scheduled (Runs at 23:00 on the last day of each month, Asia/Kolkata)');
 };
 
 /**
  * Daily safety-net job: checks all enabled salary records and
- * regenerates any missing payslip (e.g. one that was accidentally deleted).
- * Runs once a day; does nothing if a payslip already exists for that record.
+ * regenerates any missing payslip for completed months.
+ * Runs once a day at 2:00 AM IST.
  * @returns {void}
  */
 export const startMissingPayslipRecoveryJob = () => {
-  // Run once daily at 2:00 AM
   cron.schedule('0 2 * * *', async () => {
     try {
-      console.log('🔍 Checking for missing payslips to restore...');
+      console.log('🔍 Checking for missing payslips for completed months...');
 
       const activeSalaries = await Salary.find({ activeStatus: 'enabled' });
       let restored = 0;
@@ -255,11 +261,15 @@ export const startMissingPayslipRecoveryJob = () => {
         }
       }
 
-      console.log(`📊 Missing payslip recovery check complete: ${restored} restored, ${skipped} already had one`);
+      if (restored > 0) {
+        console.log(`📊 Missing payslip recovery check complete: ${restored} restored`);
+      }
     } catch (error) {
       console.error('❌ Error in missing payslip recovery job:', error);
     }
+  }, {
+    timezone: 'Asia/Kolkata'
   });
 
-  console.log('✅ Missing payslip recovery cron job started');
+  console.log('✅ Missing payslip recovery cron job scheduled (Daily at 02:00 AM, Asia/Kolkata)');
 };

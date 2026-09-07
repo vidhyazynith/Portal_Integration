@@ -666,6 +666,39 @@ router.delete('/payslip/:id', authenticateToken, requireRole('admin'), async (re
   }
 });
 
+// Bulk delete payslips for a specific month and year (Admin only)
+router.delete('/payslips/bulk/:month/:year', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    const { month, year } = req.params;
+    const payslips = await Payslip.find({ month, year: Number(year) });
+    
+    if (payslips.length === 0) {
+      return res.status(404).json({ message: `No payslips found for ${month} ${year}` });
+    }
+
+    const salaryIds = payslips.map(p => p.salaryId).filter(Boolean);
+
+    // Reset associated salary records to 'pending'
+    if (salaryIds.length > 0) {
+      await Salary.updateMany(
+        { _id: { $in: salaryIds } },
+        { $set: { status: 'pending' } }
+      );
+    }
+
+    // Delete all payslips for this month/year
+    const deleteResult = await Payslip.deleteMany({ month, year: Number(year) });
+
+    res.json({
+      message: `Successfully deleted ${deleteResult.deletedCount} payslips for ${month} ${year} and reset salary status to pending`,
+      deletedCount: deleteResult.deletedCount
+    });
+  } catch (error) {
+    console.error('Error bulk deleting payslips:', error);
+    res.status(500).json({ message: 'Server error while bulk deleting payslips' });
+  }
+});
+
 
 // Get hike history for an employee
 router.get('/employee/:employeeId/hike-history', authenticateToken, async (req, res) => {

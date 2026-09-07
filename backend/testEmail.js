@@ -4,6 +4,9 @@ import mongoose from 'mongoose';
 
 dotenv.config();
 
+process.env.EMAIL_PROVIDER = 'ses';
+
+console.log('--- Email Diagnostic Test (Testing SES) ---');
 console.log('--- Email Diagnostic Test (Testing Environment Config) ---');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('EMAIL_SERVICE:', process.env.EMAIL_SERVICE);
@@ -12,6 +15,7 @@ console.log('EMAIL_USER:', process.env.EMAIL_USER);
 console.log('EMAIL_HOST:', process.env.EMAIL_HOST);
 console.log('EMAIL_PORT:', process.env.EMAIL_PORT);
 console.log('AWS_REGION:', process.env.AWS_REGION);
+console.log('AWS_ACCESS_KEY_ID present?:', Boolean(process.env.AWS_ACCESS_KEY_ID));
 
 async function runTest() {
   console.log('\n1. Testing Transporter Configuration...');
