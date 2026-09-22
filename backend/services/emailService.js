@@ -218,10 +218,10 @@ export const sendPayslipEmail = async (payslip) => {
 Your salary for ${payslip.month} ${payslip.year} has been processed.
 
 Employee ID: ${payslip.employeeId}
-Basic Salary: $${payslip.basicSalary}
-Gross Earnings: $${payslip.grossEarnings}
-Total Deductions: $${payslip.totalDeductions}
-Net Pay: $${payslip.netPay}
+Basic Salary: ₹${payslip.basicSalary}
+Gross Earnings: ₹${payslip.grossEarnings}
+Total Deductions: ₹${payslip.totalDeductions}
+Net Pay: ₹${payslip.netPay}
 
 Please find the attached payslip for detailed information.
 
@@ -319,20 +319,20 @@ const createPayslipEmailTemplate = (payslip) => {
                 </div>
                 
                 <h4>Earnings</h4>
-                <p><strong>Basic Salary:</strong> $${payslip.basicSalary.toFixed(2)}</p>
+                <p><strong>Basic Salary:</strong> ₹${payslip.basicSalary.toFixed(2)}</p>
                 ${payslip.earnings.map(earning => `
-                    <p><strong>${earning.type}:</strong> $${earning.amount.toFixed(2)}</p>
+                    <p><strong>${earning.type}:</strong> ₹${earning.amount.toFixed(2)}</p>
                 `).join('')}
-                <p><strong>Gross Earnings:</strong> $${payslip.grossEarnings.toFixed(2)}</p>
+                <p><strong>Gross Earnings:</strong> ₹${payslip.grossEarnings.toFixed(2)}</p>
                 
                 <h4>Deductions</h4>
                 ${payslip.deductions.map(deduction => `
-                    <p><strong>${deduction.type}:</strong> $${deduction.amount.toFixed(2)}</p>
+                    <p><strong>${deduction.type}:</strong> ₹${deduction.amount.toFixed(2)}</p>
                 `).join('')}
-                <p><strong>Total Deductions:</strong> $${payslip.totalDeductions.toFixed(2)}</p>
+                <p><strong>Total Deductions:</strong> ₹${payslip.totalDeductions.toFixed(2)}</p>
                 
                 <div class="net-pay">
-                    Net Pay: $${payslip.netPay.toFixed(2)}
+                    Net Pay: ₹${payslip.netPay.toFixed(2)}
                 </div>
                 
                 <p><strong>Paid Days:</strong> ${payslip.paidDays}</p>
