@@ -368,6 +368,116 @@ router.get('/payslips/:employeeId', async (req, res) => {
   }
 });
 
+// Add/Create payslip manually for a specific salary (Admin only)
+router.post('/payslip', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    const {
+      salaryId,
+      employeeId,
+      name,
+      email,
+      designation,
+      panNo,
+      month,
+      year,
+      payDate,
+      basicSalary,
+      grossEarnings,
+      totalDeductions,
+      netPay,
+      paidDays = 30,
+      lopDays = 0,
+      casualLeaveTaken = 0,
+      casualLeaveRemaining = 0,
+      sickLeaveTaken = 0,
+      sickLeaveRemaining = 0,
+      earnings = [],
+      deductions = []
+    } = req.body;
+
+    if (!salaryId) {
+      return res.status(400).json({ message: 'salaryId is required' });
+    }
+
+    const salary = await Salary.findById(salaryId);
+    if (!salary) {
+      return res.status(404).json({ message: 'Associated Salary record not found' });
+    }
+
+    const finalMonth = month || salary.month;
+    const finalYear = year || salary.year;
+
+    // Check if payslip already exists for this salary/month/year
+    const existingPayslip = await Payslip.findOne({
+      employeeId: employeeId || salary.employeeId,
+      month: finalMonth,
+      year: Number(finalYear)
+    });
+
+    if (existingPayslip) {
+      return res.status(400).json({
+        message: `Payslip already exists for ${employeeId || salary.employeeId} for ${finalMonth} ${finalYear}`,
+        existingPayslipId: existingPayslip._id
+      });
+    }
+
+    const payslip = new Payslip({
+      salaryId: salary._id,
+      employeeId: employeeId || salary.employeeId,
+      name: name || salary.name,
+      email: email || salary.email,
+      designation: designation || salary.designation,
+      panNo: panNo || salary.panNo,
+      month: finalMonth,
+      year: Number(finalYear),
+      payDate: payDate ? new Date(payDate) : new Date(),
+      basicSalary: basicSalary !== undefined ? basicSalary : salary.basicSalary,
+      grossEarnings: grossEarnings !== undefined ? grossEarnings : salary.grossEarnings,
+      totalDeductions: totalDeductions !== undefined ? totalDeductions : salary.totalDeductions,
+      netPay: netPay !== undefined ? netPay : salary.netPay,
+      paidDays,
+      lopDays,
+      casualLeaveTaken,
+      casualLeaveRemaining,
+      sickLeaveTaken,
+      sickLeaveRemaining,
+      earnings: earnings.length > 0 ? earnings : salary.earnings,
+      deductions: deductions.length > 0 ? deductions : salary.deductions
+    });
+
+    await payslip.save();
+
+    // Mark salary as paid
+    salary.status = 'paid';
+    await salary.save();
+
+    res.status(201).json({
+      message: 'Payslip created successfully',
+      payslip
+    });
+  } catch (error) {
+    console.error('Error creating payslip:', error);
+    res.status(500).json({ message: 'Server error while creating payslip', error: error.message });
+  }
+});
+
+// Auto-generate payslip for a specific salary by ID (Admin only)
+router.post('/salary/:salaryId/generate-payslip', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    const { force = true } = req.body;
+    const result = await generatePayslipForSalary(req.params.salaryId, { force });
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Error generating payslip:', error);
+    res.status(500).json({ message: 'Server error while generating payslip', error: error.message });
+  }
+});
+
 router.get('/payslip/:id/download', async (req, res) => {
     try {
     const payslip = await Payslip.findById(req.params.id).lean();
